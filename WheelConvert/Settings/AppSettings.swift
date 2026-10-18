@@ -30,12 +30,15 @@ final class AppSettings: ObservableObject {
         revealResults = defaults.object(forKey: Keys.reveal) as? Bool ?? true
         hasCompletedWelcome = defaults.bool(forKey: Keys.welcome)
         if let data = defaults.data(forKey: Keys.conversion),
-           let stored = try? JSONDecoder().decode([String: ConversionOptions].self, from: data) {
-            conversionDefaults = stored.reduce(into: [:]) { result, pair in
-                if let format = FileFormat(rawValue: pair.key) { result[format] = pair.value }
+           let stored = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            // Each format decodes on its own, filling fields added in later versions from the defaults.
+            for (key, value) in stored {
+                guard let format = FileFormat(rawValue: key), let json = try? JSONSerialization.data(withJSONObject: value),
+                      let options = try? JSONDecoder().decode(ConversionOptions.self, from: json, defaults: ConversionOptions.defaults(for: format)) else { continue }
+                conversionDefaults[format] = options
             }
         }
-        if let data = defaults.data(forKey: Keys.imageCompression), let value = try? JSONDecoder().decode(ImageCompressionDefaults.self, from: data) {
+        if let data = defaults.data(forKey: Keys.imageCompression), let value = try? JSONDecoder().decode(ImageCompressionDefaults.self, from: data, defaults: ImageCompressionDefaults()) {
             imageCompression = value
         }
         if let data = defaults.data(forKey: Keys.videoCompression), let value = try? JSONDecoder().decode(CompressionStrength.self, from: data) {
