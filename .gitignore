@@ -1,0 +1,9 @@
+Vendor/src/
+Vendor/build/deps/
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+node_modules/
+.DS_Store
+WheelConvert.xcodeproj/

@@ -1,0 +1,110 @@
+import Foundation
+
+/// Per-output-format conversion settings. Each format only uses the fields that apply to it
+/// (see `ConversionSetting.applicable(to:)`); defaults are tuned per format.
+struct ConversionOptions: Codable, Equatable {
+    enum Quality: String, Codable, CaseIterable, Identifiable {
+        case compact, balanced, high
+        var id: String { rawValue }
+        var title: String { rawValue.capitalized }
+    }
+
+    enum SampleDepth: String, Codable, CaseIterable, Identifiable {
+        case matchSource, bit16, bit24, bit32, float32
+        var id: String { rawValue }
+        var title: String {
+            switch self {
+            case .matchSource: "Match Source"
+            case .bit16: "16-bit"
+            case .bit24: "24-bit"
+            case .bit32: "32-bit"
+            case .float32: "32-bit Float"
+            }
+        }
+    }
+
+    enum ArchiveCompression: String, Codable, CaseIterable, Identifiable {
+        case fast, balanced, maximum
+        var id: String { rawValue }
+        var title: String { rawValue.capitalized }
+        var level: Int { self == .fast ? 1 : self == .balanced ? 6 : 9 }
+    }
+
+    enum EPUBLayout: String, Codable, CaseIterable, Identifiable {
+        case adjustableText, preservePages
+        var id: String { rawValue }
+        var title: String { self == .adjustableText ? "Adjustable Text" : "Preserve Pages" }
+        var detail: String {
+            switch self {
+            case .adjustableText: "Reflowable, selectable text with headings and tables. Illustrations and complex equations stay as artwork."
+            case .preservePages: "A fixed-layout book of page images. Text can't be resized, selected, or searched."
+            }
+        }
+    }
+
+    enum OfficeLayout: String, Codable, CaseIterable, Identifiable {
+        case editable, preservePages
+        var id: String { rawValue }
+        var title: String { self == .editable ? "Editable Text" : "Preserve Pages" }
+        var detail: String {
+            switch self {
+            case .editable: "Paragraphs, headings, and tables that reflow when edited. Scanned pages are read with OCR; illustrations stay inline."
+            case .preservePages: "Every page kept as a sharp image, including tables, equations, and scans. Text can't be edited."
+            }
+        }
+    }
+
+    var quality: Quality = .balanced
+    var preserveMetadata = true
+    /// 0 keeps the source height.
+    var videoMaxHeight = 0
+    /// kbps for lossy audio.
+    var audioBitrate = 192
+    var audioSampleDepth: SampleDepth = .matchSource
+    var gifFrameRate = 15
+    /// 0 keeps the source width.
+    var gifMaxWidth = 480
+    var compression: ArchiveCompression = .balanced
+    var epubLayout: EPUBLayout = .adjustableText
+    var officeLayout: OfficeLayout = .editable
+
+    static func defaults(for format: FileFormat) -> ConversionOptions {
+        var options = ConversionOptions()
+        switch format {
+        case .mp3: options.audioBitrate = 192
+        case .m4a: options.audioBitrate = 256
+        case .ogg: options.audioBitrate = 192
+        case .opus: options.audioBitrate = 128
+        case .heic, .avif: options.quality = .high
+        case .jpg, .webp: options.quality = .high
+        default: break
+        }
+        return options
+    }
+}
+
+/// The settings a format exposes in Settings → Conversion.
+enum ConversionSetting: CaseIterable {
+    case quality, preserveMetadata, videoMaxHeight, audioBitrate, audioSampleDepth, gifFrameRate, gifMaxWidth, compression, epubLayout, officeLayout
+
+    static func applicable(to format: FileFormat) -> [ConversionSetting] {
+        switch format {
+        case .jpg, .webp, .heic, .avif: [.quality, .preserveMetadata]
+        case .png, .tiff, .bmp: [.preserveMetadata]
+        case .mp4, .mov, .mkv, .webm, .avi, .wmv: [.quality, .videoMaxHeight, .audioBitrate, .preserveMetadata]
+        case .gif: [.gifFrameRate, .gifMaxWidth]
+        case .mp3, .m4a, .ogg, .opus: [.audioBitrate, .preserveMetadata]
+        case .wav, .aiff: [.audioSampleDepth, .preserveMetadata]
+        case .flac: [.audioSampleDepth, .compression, .preserveMetadata]
+        case .zip, .gzip: [.compression]
+        case .epub: [.epubLayout]
+        case .docx, .pages: [.officeLayout]
+        default: []
+        }
+    }
+
+    static let bitrates = [96, 128, 160, 192, 256, 320]
+    static let videoHeights = [0, 2160, 1440, 1080, 720, 480]
+    static let gifFrameRates = [10, 12, 15, 20, 24, 30]
+    static let gifWidths = [320, 480, 640, 800, 1080, 0]
+}
