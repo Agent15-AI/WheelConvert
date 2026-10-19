@@ -215,6 +215,34 @@ for name, preset, fixture, ext, check in PRESET_CASES:
     print(f"{'OK  ' if not err else 'FAIL'} {name:28} {time.time() - t:5.1f}s {os.path.basename(outs[0]) if outs else ''} {err or ''}")
     if err: failures.append((name, err))
 
+# Shortcuts actions (Convert File, Compress File, Apply Preset), run through --intent.
+INTENT_CASES = [
+    ("intent convert", ["convert", "png", "sample.jpg"], lambda outs: outs == ["OUT:sample.png"]),
+    ("intent convert pages", ["convert", "jpg", "sample-multi.pdf"], lambda outs: len(outs) == 3 and all(o.endswith(".jpg") for o in outs)),
+    ("intent compress", ["compress", "strong", "sample.mov"], lambda outs: outs == ["OUT:sample Compressed.mov"]),
+    ("intent compress target", ["compress", "balanced:0.1", "sample.mp4"], lambda outs: len(outs) == 1),
+    ("intent preset", ["preset", "Podcast MP3 (128 kbps)", "sample.mov"], lambda outs: outs == ["OUT:sample.mp3"]),
+    ("intent data input", ["convert", "webp", "data:sample.jpg"], lambda outs: len(outs) == 1 and outs[0].startswith("DATA:sample.webp\t")),
+]
+for name, (action, arg, *files), check in INTENT_CASES:
+    if only and not any(o in name for o in only): continue
+    case = os.path.join(WORK, name.replace(" ", "-")); os.makedirs(case)
+    paths = []
+    for f in files:
+        bare = f.split(":", 1)[-1]
+        shutil.copy2(os.path.join(FIX, bare), os.path.join(case, bare))
+        paths.append(("data:" if f.startswith("data:") else "") + os.path.join(case, bare))
+    r = subprocess.run([APP, "--intent", action, arg] + paths, capture_output=True, text=True, timeout=300)
+    outs = [("OUT:" + os.path.basename(l[4:])) if l.startswith("OUT:") else l for l in r.stdout.splitlines() if l.startswith(("OUT:", "DATA:"))]
+    err = None if r.returncode == 0 and check(outs) else f"{outs} {r.stderr.strip()[-200:]}"
+    if not err and [f for f in os.listdir(case) if f.startswith(".wheelconvert")]: err = "leftover staging"
+    print(f"{'OK  ' if not err else 'FAIL'} {name:28} {err or ''}")
+    if err: failures.append((name, err))
+r = subprocess.run([APP, "--intent", "compress", "balanced", os.path.join(FIX, "sample.pdf"), os.path.join(FIX, "sample.jpg")], capture_output=True, text=True)
+err = None if r.returncode == 1 and "one kind at a time" in r.stderr else f"mixed kinds: {r.stderr.strip()}"
+print(f"{'OK  ' if not err else 'FAIL'} {'intent mixed kinds error':28} {err or ''}")
+if err: failures.append(("intent mixed kinds", err))
+
 # Watch folder: new files run through a preset once complete; hidden, partial and own results are skipped.
 if not only or any("watch" in o for o in only):
     folder = os.path.join(WORK, "watch"); os.makedirs(folder)

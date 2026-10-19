@@ -1,4 +1,5 @@
 import AVFoundation
+import AppIntents
 import AppKit
 
 /// `WheelConvert --convert <file> <format>` converts one file and prints the saved paths.
@@ -55,6 +56,10 @@ enum CommandLineMode {
                     }
                     exit(0)
                 }
+                if let i = args.firstIndex(of: "--intent"), i + 3 < args.count {
+                    try await intentCheck(args[i + 1], args[i + 2], files: Array(args[(i + 3)...]))
+                    exit(0)
+                }
                 if let i = args.firstIndex(of: "--outputs"), i + 1 < args.count {
                     let url = URL(fileURLWithPath: args[i + 1])
                     let formats = FileFormat.detect(url).map { ConversionMatrix.outputs(for: $0) } ?? []
@@ -98,6 +103,32 @@ enum CommandLineMode {
 }
 
 extension CommandLineMode {
+    /// `--intent convert <format> | compress <strength[:MB]> | preset <name>` runs a Shortcuts action on
+    /// files ("data:<path>" passes a file as data, the way Shortcuts sometimes does).
+    static func intentCheck(_ action: String, _ argument: String, files paths: [String]) async throws {
+        let files = try paths.map { path -> IntentFile in
+            guard path.hasPrefix("data:") else { return IntentFile(fileURL: URL(fileURLWithPath: path).standardizedFileURL) }
+            let url = URL(fileURLWithPath: String(path.dropFirst(5)))
+            return IntentFile(data: try Data(contentsOf: url), filename: url.lastPathComponent)
+        }
+        let outputs: [IntentFile]
+        switch action {
+        case "convert":
+            guard let format = ShortcutFormat(rawValue: argument) else { throw WheelError("Unknown format \(argument)") }
+            outputs = try await ConvertFileIntent.convert(files, to: format)
+        case "compress":
+            let parts = argument.split(separator: ":")
+            outputs = try await CompressFileIntent.compress(files, strength: ShortcutStrength(rawValue: String(parts[0])) ?? .balanced,
+                                                            targetMegabytes: parts.count > 1 ? Double(parts[1]) : nil)
+        case "preset":
+            guard let preset = await MainActor.run(body: { Preset.named(argument, in: AppSettings.shared.presets) }) else { throw WheelError("Unknown preset \(argument)") }
+            outputs = try await ApplyPresetIntent.apply(preset.id, to: files)
+        default:
+            throw WheelError("Unknown action \(action)")
+        }
+        for file in outputs { print(file.fileURL.map { "OUT:\($0.path)" } ?? "DATA:\(file.filename)\t\(file.data.count)") }
+    }
+
     /// `--preview-check <file> [seconds]`: how long a tool preview takes to start playing, and to play
     /// again after a seek. Prints `PLAYING:<s>` and `SEEKED:<s>`.
     @MainActor

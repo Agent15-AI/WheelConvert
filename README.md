@@ -13,6 +13,9 @@ with its options, or a tool with its settings. Matching presets appear as extra 
 Manage them in Settings → Presets. Settings → Watch Folders runs a preset on every new file dropped into a
 chosen folder, once the file has finished copying; WheelConvert's own results are never processed again.
 
+The Shortcuts app gets three WheelConvert actions — **Convert File**, **Compress File** and **Apply Preset** —
+which take files and return the saved results, so conversions can be automated.
+
 Without dragging, right-click files in Finder and choose **Convert with WheelConvert**, **WheelConvert Tools**
 or **WheelConvert File Actions**; the wheel opens at the pointer and a click picks a petal (Escape or a click
 elsewhere cancels). These are macOS Services, so they may sit under Quick Actions or Services when many are installed.
@@ -87,8 +90,8 @@ The app binary also has developer modes used by these scripts:
 `--convert <file> <format> [--options <json>]`, `--tool <tool> <files…> [--options <json>]`,
 `--outputs <file>`, `--snapshot <view> <out.png> [files…]` for offscreen UI renders, and
 `--preview-check <file> [seconds]`, which times how quickly a tool preview starts playing (and plays again after a seek),
-`--batch <format> <files…>` (the parallel job queue), `--preset <name> <files…>` and
-`--watch <folder> <preset> <seconds>`.
+`--batch <format> <files…>` (the parallel job queue), `--preset <name> <files…>`,
+`--watch <folder> <preset> <seconds>` and `--intent convert|compress|preset <argument> <files…>` (the Shortcuts actions).
 
 `scripts/e2e/DragDriver.swift` performs a real drag with a modifier tap and drops on a petal. It moves the
 mouse and presses keys, so run it only while you're not using the Mac.
