@@ -15,8 +15,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         monitor.onShowWheel = { [weak self] mode, urls in self?.wheel.show(mode: mode, urls: urls) }
         monitor.onDismissWheel = { [weak self] in self?.wheel.dismiss() }
         monitor.isDragInsideWheel = { [weak self] in self?.wheel.isDragInside ?? false }
-        monitor.isWheelVisible = { [weak self] in self?.wheel.isVisible ?? false }
+        monitor.isWheelVisible = { [weak self] in self?.wheel.isOpenForDrag ?? false }
         monitor.start()
+        NSApp.servicesProvider = self
         if !AppSettings.shared.hasCompletedWelcome {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { WelcomeWindowController.shared.show() }
         }
@@ -30,6 +31,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Opening the app again from Finder shows Settings, since there is no Dock icon.
         SettingsWindowController.shared.show()
         return false
+    }
+
+    /// Finder's right-click items (NSServices in Info.plist): open that wheel at the pointer for the selection.
+    @objc func showWheel(_ pasteboard: NSPasteboard, userData: String, error: AutoreleasingUnsafeMutablePointer<NSString>) {
+        let urls = DragMonitor.fileURLs(on: pasteboard)
+        guard !urls.isEmpty, let mode = WheelMode(rawValue: userData) else { return }
+        wheel.show(mode: mode, urls: urls, byClick: true)
     }
 
     @MainActor

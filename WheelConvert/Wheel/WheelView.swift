@@ -10,6 +10,11 @@ enum Brand {
 /// Radial menu of petals around a central label. It is also the drop target for the drag that opened it.
 final class WheelView: NSView {
     var onDrop: ((WheelItem, [URL]) -> Void)?
+    /// Click mode (opened from the Finder menu): the clicked petal, or nil for Escape or a click off the petals.
+    var onClick: ((WheelItem?) -> Void)?
+    var clickMode = false {
+        didSet { if !clickMode { highlighted = nil } }
+    }
     var onDragInsideChanged: ((Bool) -> Void)?
     private(set) var isDragInside = false
 
@@ -37,7 +42,7 @@ final class WheelView: NSView {
     static let margin: CGFloat = 26
 
     override var isFlipped: Bool { false }
-    override var acceptsFirstResponder: Bool { false }
+    override var acceptsFirstResponder: Bool { clickMode }
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -340,6 +345,33 @@ final class WheelView: NSView {
         spring.mass = 1
         spring.duration = spring.settlingDuration
         layer.add(spring, forKey: "intro")
+    }
+
+    // MARK: Clicking (Finder menu)
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseMoved, .mouseEnteredAndExited, .activeAlways, .inVisibleRect], owner: self))
+    }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    override func mouseMoved(with event: NSEvent) {
+        if clickMode { highlighted = petal(at: convert(event.locationInWindow, from: nil)) }
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        if clickMode { highlighted = nil }
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        guard clickMode else { return }
+        onClick?(petal(at: convert(event.locationInWindow, from: nil)).flatMap { items[safe: $0] })
+    }
+
+    override func keyDown(with event: NSEvent) {
+        if clickMode && event.keyCode == 53 { onClick?(nil) } else { super.keyDown(with: event) } // 53 = Escape
     }
 
     // MARK: Dragging destination

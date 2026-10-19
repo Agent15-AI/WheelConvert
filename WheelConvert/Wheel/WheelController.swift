@@ -1,8 +1,10 @@
 import AppKit
 
-/// Borderless panel that never activates the app, so the drag source keeps focus.
+/// Borderless panel that never activates the app, so the drag source keeps focus. Opened from the
+/// Finder menu it takes key status (still without activating) so Escape can close it.
 final class WheelPanel: NSPanel {
-    override var canBecomeKey: Bool { false }
+    var acceptsKey = false
+    override var canBecomeKey: Bool { acceptsKey }
     override var canBecomeMain: Bool { false }
 }
 
@@ -14,6 +16,7 @@ final class WheelController {
     private let wheel: WheelView
     private(set) var mode: WheelMode?
     private var urls: [URL] = []
+    private var outsideClicks: Any?
 
     init() {
         let size = WheelView.diameter(for: 8)
@@ -34,14 +37,27 @@ final class WheelController {
             self?.dismiss()
             self?.onChoose?(item, urls)
         }
+        wheel.onClick = { [weak self] item in
+            guard let self else { return }
+            let urls = self.urls
+            self.dismiss()
+            if let item { self.onChoose?(item, urls) }
+        }
+        // A click anywhere else takes key status away: treat it like Escape.
+        NotificationCenter.default.addObserver(forName: NSWindow.didResignKeyNotification, object: panel, queue: .main) { [weak self] _ in
+            if self?.wheel.clickMode == true { self?.dismiss() }
+        }
     }
 
     var isVisible: Bool { panel.isVisible }
+    /// Visible and following a drag (not opened from the Finder menu).
+    var isOpenForDrag: Bool { panel.isVisible && !wheel.clickMode }
     var isDragInside: Bool { panel.isVisible && wheel.isDragInside }
 
     /// Opens (or switches) the wheel for these files, centered on the pointer.
-    func show(mode: WheelMode, urls: [URL]) {
-        let sameContent = panel.isVisible && self.mode == mode && self.urls == urls
+    /// - Parameter byClick: opened from the Finder menu; petals are chosen by clicking instead of dropping.
+    func show(mode: WheelMode, urls: [URL], byClick: Bool = false) {
+        let sameContent = panel.isVisible && self.mode == mode && self.urls == urls && wheel.clickMode == byClick
         guard !sameContent else { return }
         let wasVisible = panel.isVisible
         self.mode = mode
@@ -64,13 +80,27 @@ final class WheelController {
         panel.setFrame(frame, display: false)
         wheel.frame = NSRect(origin: .zero, size: frame.size)
         wheel.configure(items: items, idleText: idle)
-        panel.orderFrontRegardless()
+        wheel.clickMode = byClick
+        panel.acceptsKey = byClick
+        if byClick {
+            panel.makeKeyAndOrderFront(nil)
+            panel.makeFirstResponder(wheel)
+            // Clicks in other apps never reach this panel; they close the wheel like clicking away from a menu.
+            if outsideClicks == nil {
+                outsideClicks = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in self?.dismiss() }
+            }
+        } else {
+            panel.orderFrontRegardless()
+        }
         // Switching wheels swaps the petals in place; animating it would show both wheels at once.
         if !wasVisible { wheel.animateIn() }
     }
 
     func dismiss() {
+        if let outsideClicks { NSEvent.removeMonitor(outsideClicks) }
+        outsideClicks = nil
         guard panel.isVisible else { return }
+        wheel.clickMode = false
         panel.orderOut(nil)
         mode = nil
         urls = []

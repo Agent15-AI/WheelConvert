@@ -8,6 +8,10 @@ tool, or run a file action. Everything runs locally.
 - **⌘ Command** — File tools (compress, crop, trim, redact, merge, split, metadata, …)
 - **⌃ Control** — File actions (AirDrop, Float, Copy, Move, Copy Path, Terminal)
 
+Without dragging, right-click files in Finder and choose **Convert with WheelConvert**, **WheelConvert Tools**
+or **WheelConvert File Actions**; the wheel opens at the pointer and a click picks a petal (Escape or a click
+elsewhere cancels). These are macOS Services, so they may sit under Quick Actions or Services when many are installed.
+
 Keys are configurable in Settings. Results are saved next to the original (or in Downloads when that
 folder is read-only) and never overwrite an existing file.
 

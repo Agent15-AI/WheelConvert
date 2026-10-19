@@ -30,6 +30,66 @@
 	<string>Free software. Converts files locally on your Mac.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>NSServices</key>
+	<array>
+		<dict>
+			<key>NSMenuItem</key>
+			<dict>
+				<key>default</key>
+				<string>Convert with WheelConvert</string>
+			</dict>
+			<key>NSMessage</key>
+			<string>showWheel</string>
+			<key>NSPortName</key>
+			<string>WheelConvert</string>
+			<key>NSUserData</key>
+			<string>convert</string>
+			<key>NSRequiredContext</key>
+			<dict/>
+			<key>NSSendFileTypes</key>
+			<array>
+				<string>public.item</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSMenuItem</key>
+			<dict>
+				<key>default</key>
+				<string>WheelConvert Tools</string>
+			</dict>
+			<key>NSMessage</key>
+			<string>showWheel</string>
+			<key>NSPortName</key>
+			<string>WheelConvert</string>
+			<key>NSUserData</key>
+			<string>tools</string>
+			<key>NSRequiredContext</key>
+			<dict/>
+			<key>NSSendFileTypes</key>
+			<array>
+				<string>public.item</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSMenuItem</key>
+			<dict>
+				<key>default</key>
+				<string>WheelConvert File Actions</string>
+			</dict>
+			<key>NSMessage</key>
+			<string>showWheel</string>
+			<key>NSPortName</key>
+			<string>WheelConvert</string>
+			<key>NSUserData</key>
+			<string>actions</string>
+			<key>NSRequiredContext</key>
+			<dict/>
+			<key>NSSendFileTypes</key>
+			<array>
+				<string>public.item</string>
+			</array>
+		</dict>
+	</array>
 	<key>NSSupportsAutomaticTermination</key>
 	<false/>
 	<key>NSSupportsSuddenTermination</key>
