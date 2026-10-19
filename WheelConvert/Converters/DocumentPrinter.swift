@@ -46,8 +46,13 @@ enum DocumentPrinter {
         defer { view.close() }
         try await view.loadHTML(host, timeout: 60)
         progress(0.15)
-        guard let sections = try await view.evaluate("return await wcRenderDocx(data);", arguments: ["data": data.base64EncodedString()]) as? [[String: Any]],
-              !sections.isEmpty else {
+        let rendered: Any?
+        do {
+            rendered = try await view.evaluate("return await wcRenderDocx(data);", arguments: ["data": data.base64EncodedString()])
+        } catch {
+            throw WheelError("This file is not a readable DOCX document. It may be damaged or password-protected.")
+        }
+        guard let sections = rendered as? [[String: Any]], !sections.isEmpty else {
             throw WheelError("The document has no pages.")
         }
         progress(0.4)
@@ -111,11 +116,11 @@ enum PDFScaler {
         for index in 1...source.numberOfPages {
             guard let page = source.page(at: index) else { continue }
             let box = page.getBoxRect(.mediaBox)
-            context.beginPDFPage([kCGPDFContextMediaBox: NSValue(rect: media)] as CFDictionary)
+            context.beginPage(mediaBox: &media)
             context.scaleBy(x: size.width / box.width, y: size.height / box.height)
             context.translateBy(x: -box.minX, y: -box.minY)
             context.drawPDFPage(page)
-            context.endPDFPage()
+            context.endPage()
         }
         context.closePDF()
     }

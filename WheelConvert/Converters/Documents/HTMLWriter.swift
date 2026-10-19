@@ -168,6 +168,7 @@ struct HTMLWriter {
             case .embedded: src = "data:\(image.mime);base64,\(image.data.base64EncodedString())"
             case .referenced(let reference): src = reference(image)
             }
+            guard !src.isEmpty else { return "" }
             var size = ""
             if let w = image.width, w > 0 { size += " width=\"\(Int(w.rounded()))\"" }
             let alt = escape(image.alt ?? "")

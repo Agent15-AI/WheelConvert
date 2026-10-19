@@ -142,6 +142,7 @@ struct BackgroundView: View {
                             Text("None").tag(ToolOptions.Background.Kind.transparent)
                         }
                         .pickerStyle(.segmented)
+                        .labelsHidden()
                         switch options.kind {
                         case .gradient:
                             LazyVGrid(columns: Array(repeating: GridItem(.fixed(44), spacing: 8), count: 5), spacing: 8) {
@@ -301,7 +302,7 @@ struct RedactPhotoView: View {
     @State private var message: String?
 
     var body: some View {
-        ToolFrame(primary: "Save Redacted Copy", canApply: !rects.isEmpty, note: message ?? (style == .blur ? "Blur softens details. Use Solid for sensitive information." : "Metadata is removed from redacted copies."),
+        ToolFrame(primary: "Save Redacted Copy", canApply: !rects.isEmpty, note: message ?? (rects.isEmpty ? "Drag on the photo to cover an area, or detect faces or text." : style == .blur ? "Blur softens details. Use Solid for sensitive information." : "Metadata is removed from redacted copies."),
                   cancel: close, apply: {
                       apply(.init(regions: rects.map { .init(x: $0.minX, y: $0.minY, width: $0.width, height: $0.height) }, style: style, color: color.hexString))
                   }) {

@@ -1,5 +1,5 @@
 """Runs every file tool through WheelConvert's --tool mode and validates the results."""
-import json, os, shutil, subprocess, sys, time
+import json, os, re, shutil, subprocess, sys, time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 APP = os.path.join(ROOT, "build/DD/Build/Products/Debug/WheelConvert.app/Contents/MacOS/WheelConvert")
@@ -29,7 +29,7 @@ CASES = [
     ("compress gif", "compress", ["sample.gif"], {"strength": "strong"}, "smaller"),
     ("compress wav→m4a", "compress", ["sample.wav"], {"strength": "balanced"}, "media"),
     ("compress mp3 target", "compress", ["sample.mp3"], {"mode": "fileSize", "targetBytes": 30000}, "<=30000"),
-    ("compress pdf", "compress", ["sample.pdf"], {"strength": "strong"}, "pdf"),
+    ("compress pdf", "compress", ["sample-images.pdf"], {"strength": "balanced"}, "pdf-smaller"),
     ("metadata remove jpg", "removeMetadata", ["sample.jpg"], {"removeAll": True}, "image"),
     ("metadata edit jpg", "removeMetadata", ["sample.jpg"], {"changes": {"Artist": "WheelConvert Test", "Copyright": "CC0"}}, "image"),
     ("metadata remove mp4", "removeMetadata", ["sample.mp4"], {"removeAll": True}, "media"),
@@ -82,7 +82,7 @@ CASES = [
     ("split pdf ranges", "splitPDF", ["sample-multi.pdf"], {"mode": "ranges", "ranges": "1, 2-"}, "folder"),
     ("extract zip", "extractArchive", ["sample.zip"], {}, "folder"),
     ("extract tgz", "extractArchive", ["sample.tar.gz"], {}, "folder"),
-    ("extract gz", "extractArchive", ["single.txt.gz"], {}, "folder"),
+    ("extract gz", "extractArchive", ["single.txt.gz"], {}, "file:single.txt"),
 ]
 
 shutil.rmtree(WORK, ignore_errors=True)
@@ -109,11 +109,18 @@ for index, (name, tool, files, options, check) in enumerate(CASES):
         elif check == "image":
             s = subprocess.run(["sips", "-g", "pixelWidth", "-g", "pixelHeight", out], capture_output=True, text=True)
             if "pixelWidth" not in s.stdout: err = "unreadable image"
-        elif check == "pdf":
-            with open(out, "rb") as fh:
-                if fh.read(5) != b"%PDF-": err = "not pdf"
+        elif check in ("pdf", "pdf-smaller"):
+            if check == "pdf-smaller" and size(out) >= size(paths[0]) * 0.8: err = f"not much smaller {size(out)} vs {size(paths[0])}"
+            with open(out, "rb") as fh: data = fh.read()
+            boxes = re.findall(rb"/MediaBox\s*\[([^\]]*)\]", data)
+            if err: pass
+            elif not data.startswith(b"%PDF-"): err = "not pdf"
+            elif not boxes: err = "no MediaBox"
+            elif any(len(b.split()) != 4 or float(b.split()[2]) - float(b.split()[0]) < 1 or float(b.split()[3]) - float(b.split()[1]) < 1 for b in boxes): err = "zero-size page"
         elif check == "folder":
             if not os.path.isdir(out) or not os.listdir(out): err = "no folder output"
+        elif check.startswith("file:"):
+            if not os.path.isfile(out) or os.path.basename(out) != check[5:]: err = f"expected file {check[5:]}"
         else:
             p = probe(out)
             if not p: err = "ffprobe failed"

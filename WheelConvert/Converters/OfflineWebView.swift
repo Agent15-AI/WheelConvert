@@ -172,7 +172,10 @@ final class OfflineWebView: NSObject, WKNavigationDelegate {
         case "about", "data", "blob":
             return .allow
         case "file":
-            if let allowed = allowedDirectory, !url.standardizedFileURL.path.hasPrefix(allowed.path) { return .cancel }
+            if let allowed = allowedDirectory {
+                let path = url.standardizedFileURL.path
+                guard path == allowed.path || path.hasPrefix(allowed.path + "/") else { return .cancel }
+            }
             return .allow
         default:
             return .cancel

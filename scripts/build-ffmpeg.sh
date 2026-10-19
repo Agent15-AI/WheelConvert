@@ -23,18 +23,17 @@ FFMPEG=9.0.1 LAME=3.100 VPX=1.17.0 OPUS=1.6.1 OGG=1.3.6 VORBIS=1.3.7 WEBP=1.6.0
 mkdir -p $SRC $PREFIX $OUT/bin $OUT/licenses
 cd $SRC
 
-fetch() { # url file
-  [[ -f $2 ]] && return
-  curl -fL --retry 3 -o $2.part "$1"
-  mv $2.part $2
+fetch() { # url file sha256 — pinned for the versions above; update together with a version bump
+  [[ -f $2 ]] || { curl -fL --retry 3 -o $2.part "$1" && mv $2.part $2; }
+  [[ $(shasum -a 256 $2 | cut -d' ' -f1) == $3 ]] || { echo "Checksum mismatch for $2"; rm -f $2; exit 1; }
 }
-fetch https://ffmpeg.org/releases/ffmpeg-$FFMPEG.tar.xz ffmpeg-$FFMPEG.tar.xz
-fetch https://downloads.sourceforge.net/project/lame/lame/$LAME/lame-$LAME.tar.gz lame-$LAME.tar.gz
-fetch https://github.com/webmproject/libvpx/archive/refs/tags/v$VPX.tar.gz libvpx-$VPX.tar.gz
-fetch https://downloads.xiph.org/releases/opus/opus-$OPUS.tar.gz opus-$OPUS.tar.gz
-fetch https://downloads.xiph.org/releases/ogg/libogg-$OGG.tar.xz libogg-$OGG.tar.xz
-fetch https://downloads.xiph.org/releases/vorbis/libvorbis-$VORBIS.tar.xz libvorbis-$VORBIS.tar.xz
-fetch https://storage.googleapis.com/downloads.webmproject.org/releases/webp/libwebp-$WEBP.tar.gz libwebp-$WEBP.tar.gz
+fetch https://ffmpeg.org/releases/ffmpeg-$FFMPEG.tar.xz ffmpeg-$FFMPEG.tar.xz cf38e0e28c7e5605942c4a77755349b0145804a397af37eb1fb4c77cb237f635
+fetch https://downloads.sourceforge.net/project/lame/lame/$LAME/lame-$LAME.tar.gz lame-$LAME.tar.gz ddfe36cab873794038ae2c1210557ad34857a4b6bdc515785d1da9e175b1da1e
+fetch https://github.com/webmproject/libvpx/archive/refs/tags/v$VPX.tar.gz libvpx-$VPX.tar.gz 1020f184046187baa2985dbde38e0691f49c44088bca7a1842b0236c6081dc0a
+fetch https://downloads.xiph.org/releases/opus/opus-$OPUS.tar.gz opus-$OPUS.tar.gz 6ffcb593207be92584df15b32466ed64bbec99109f007c82205f0194572411a1
+fetch https://downloads.xiph.org/releases/ogg/libogg-$OGG.tar.xz libogg-$OGG.tar.xz 5c8253428e181840cd20d41f3ca16557a9cc04bad4a3d04cce84808677fa1061
+fetch https://downloads.xiph.org/releases/vorbis/libvorbis-$VORBIS.tar.xz libvorbis-$VORBIS.tar.xz b33cc4934322bcbf6efcbacf49e3ca01aadbea4114ec9589d1b1e9d20f72954b
+fetch https://storage.googleapis.com/downloads.webmproject.org/releases/webp/libwebp-$WEBP.tar.gz libwebp-$WEBP.tar.gz e4ab7009bf0629fd11982d4c2aa83964cf244cffba7347ecd39019a9e38c4564
 
 unpack() { [[ -d $2 ]] || tar -xf $1; }
 unpack ffmpeg-$FFMPEG.tar.xz ffmpeg-$FFMPEG

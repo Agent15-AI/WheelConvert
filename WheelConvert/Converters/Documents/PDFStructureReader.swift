@@ -42,6 +42,8 @@ enum PDFStructureReader {
                 elements = (try? ocrLines(page).map(Element.line)) ?? elements
             }
             elements += images(on: page).map { Element.image($0.0, $0.1) }
+            // A page of pure artwork (a photo, a drawing without text) is kept as one picture.
+            if elements.isEmpty, let picture = pagePicture(page) { elements = [.image(picture, page.bounds(for: .cropBox))] }
             pages.append(order(elements, pageBounds: page.bounds(for: .cropBox)))
             progress(0.8 * Double(index + 1) / Double(document.pageCount))
         }
@@ -135,6 +137,16 @@ enum PDFStructureReader {
     }
 
     // MARK: Illustrations
+
+    /// The whole page as a JPEG, at most 4000 pixels on its long side.
+    static func pagePicture(_ page: PDFPage) -> Data? {
+        let box = page.bounds(for: .cropBox)
+        guard max(box.width, box.height) > 0, let image = render(page, scale: min(2, 4000 / max(box.width, box.height))) else { return nil }
+        let data = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(data, "public.jpeg" as CFString, 1, nil) else { return nil }
+        CGImageDestinationAddImage(destination, image, [kCGImageDestinationLossyCompressionQuality: 0.9] as CFDictionary)
+        return CGImageDestinationFinalize(destination) ? data as Data : nil
+    }
 
     /// Placed raster images (and form XObjects containing them), cropped from the rendered page.
     static func images(on page: PDFPage) -> [(Data, CGRect)] {

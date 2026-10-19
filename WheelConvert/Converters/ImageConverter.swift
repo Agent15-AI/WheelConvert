@@ -52,13 +52,21 @@ enum ImageConverter {
         let height = properties[kCGImagePropertyPixelHeight] as? Int ?? 0
         let longest = max(width, height)
         guard longest > 0 else { throw WheelError("Could not read the image \(url.lastPathComponent).") }
-        let options: [CFString: Any] = [
-            kCGImageSourceCreateThumbnailFromImageAlways: true,
-            kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: min(maxPixelSize ?? longest, longest),
-            kCGImageSourceShouldCacheImmediately: true,
-        ]
-        guard let image = CGImageSourceCreateThumbnailAtIndex(source, index, options as CFDictionary) else {
+        let orientation = properties[kCGImagePropertyOrientation] as? Int ?? 1
+        let image: CGImage?
+        if orientation == 1 && (maxPixelSize ?? longest) >= longest {
+            // Already upright at full size: decode directly, keeping 16-bit and HDR pixels intact.
+            image = CGImageSourceCreateImageAtIndex(source, index, [kCGImageSourceShouldCacheImmediately: true] as CFDictionary)
+        } else {
+            let options: [CFString: Any] = [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceThumbnailMaxPixelSize: min(maxPixelSize ?? longest, longest),
+                kCGImageSourceShouldCacheImmediately: true,
+            ]
+            image = CGImageSourceCreateThumbnailAtIndex(source, index, options as CFDictionary)
+        }
+        guard let image else {
             throw WheelError("Could not read the image \(url.lastPathComponent).")
         }
         var metadata: CGImageMetadata?
@@ -117,7 +125,7 @@ enum ImageConverter {
 
     /// Draws the image over white, for formats without transparency.
     static func flatten(_ image: CGImage, background: CGColor = CGColor(gray: 1, alpha: 1)) -> CGImage {
-        let space = image.colorSpace.flatMap { $0.model == .rgb ? $0 : nil } ?? CGColorSpace(name: CGColorSpace.sRGB)!
+        let space = ImageTools.rgbSpace(of: image)
         guard let context = CGContext(data: nil, width: image.width, height: image.height, bitsPerComponent: 8, bytesPerRow: 0,
                                       space: space, bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return image }
         let rect = CGRect(x: 0, y: 0, width: image.width, height: image.height)
@@ -131,7 +139,8 @@ enum ImageConverter {
     /// One page per image, each page the image's size at its recorded resolution (72 ppi when unknown).
     static func writePDF(_ images: [LoadedImage], to url: URL) throws {
         guard let consumer = CGDataConsumer(url: url as CFURL) else { throw WheelError("Could not create the PDF.") }
-        var box = CGRect.zero
+        // Every page sets its own box; this default only fills the page tree's inherited entry.
+        var box = CGRect(x: 0, y: 0, width: 612, height: 792)
         guard let context = CGContext(consumer: consumer, mediaBox: &box, [kCGPDFContextCreator: "WheelConvert"] as CFDictionary) else {
             throw WheelError("Could not create the PDF.")
         }
@@ -144,10 +153,10 @@ enum ImageConverter {
                 let fit = limit / max(page.width, page.height)
                 page.size = CGSize(width: page.width * fit, height: page.height * fit)
             }
-            context.beginPDFPage([kCGPDFContextMediaBox: NSValue(rect: page)] as CFDictionary)
+            context.beginPage(mediaBox: &page)
             context.interpolationQuality = .high
             context.draw(image.cgImage, in: page)
-            context.endPDFPage()
+            context.endPage()
         }
         context.closePDF()
     }

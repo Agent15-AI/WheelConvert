@@ -1,7 +1,7 @@
 import Foundation
 
-/// Results are saved beside their originals and never overwrite anything: a taken name gets
-/// a Finder-style number ("photo 2.png").
+/// Results are saved beside their originals (or in Downloads when that folder is read-only) and
+/// never overwrite anything: a taken name gets a Finder-style number ("photo 2.png").
 enum OutputNaming {
     static func baseName(of url: URL) -> String {
         let name = url.lastPathComponent
@@ -26,19 +26,19 @@ enum OutputNaming {
 
     /// Converted copy: same name, new extension.
     static func converted(_ source: URL, to format: FileFormat) -> URL {
-        unique(in: source.deletingLastPathComponent(), base: baseName(of: source), extension: format.fileExtension)
+        unique(in: Publisher.destinationDirectory(for: source), base: baseName(of: source), extension: format.fileExtension)
     }
 
     /// Tool result: "name Suffix.ext" (suffix like "Compressed"), keeping the source extension unless told otherwise.
     static func tool(_ source: URL, suffix: String, extension ext: String? = nil) -> URL {
         let keep = source.lastPathComponent.lowercased().hasSuffix(".tar.gz") ? "tar.gz" : source.pathExtension
-        return unique(in: source.deletingLastPathComponent(), base: "\(baseName(of: source)) \(suffix)", extension: ext ?? keep)
+        return unique(in: Publisher.destinationDirectory(for: source), base: "\(baseName(of: source)) \(suffix)", extension: ext ?? keep)
     }
 
     /// A new folder beside the source for multi-file results.
     static func folder(for source: URL, suffix: String? = nil) throws -> URL {
         let base = suffix.map { "\(baseName(of: source)) \($0)" } ?? baseName(of: source)
-        let url = unique(in: source.deletingLastPathComponent(), base: base, extension: nil)
+        let url = unique(in: Publisher.destinationDirectory(for: source), base: base, extension: nil)
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: false)
         return url
     }

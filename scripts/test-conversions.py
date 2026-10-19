@@ -2,7 +2,7 @@
 
 usage: python3 -I scripts/test-conversions.py [filter...]
 """
-import json, os, shutil, subprocess, sys, time, zipfile
+import json, os, re, shutil, subprocess, sys, time, zipfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 APP = os.path.join(ROOT, "build/DD/Build/Products/Debug/WheelConvert.app/Contents/MacOS/WheelConvert")
@@ -10,9 +10,24 @@ FFPROBE = os.path.join(ROOT, "Vendor/build/bin/ffprobe")
 FIXTURES = os.path.join(ROOT, "build/fixtures")
 WORK = os.path.join(ROOT, "build/conversion-test")
 filters = sys.argv[1:]
+# Image-only PDFs have no text for these targets; a clear error is the right result.
+EXPECTED_ERRORS = {("sample-images.pdf", "txt"), ("sample-images.pdf", "xlsx")}
 
 def run(args, timeout=300):
     return subprocess.run(args, capture_output=True, text=True, timeout=timeout)
+
+def pdf_error(path):
+    """A PDF header, at least one page box, and no zero-size page boxes."""
+    with open(path, "rb") as f: data = f.read()
+    if not data.startswith(b"%PDF-"): return "not a PDF"
+    boxes = re.findall(rb"/MediaBox\s*\[([^\]]*)\]", data)
+    if not boxes:
+        # Page dictionaries packed in compressed object streams (PDFBox) can't be read here.
+        return None if b"/ObjStm" in data else "no MediaBox"
+    for box in boxes:
+        nums = [float(x) for x in box.split()]
+        if len(nums) != 4 or nums[2] - nums[0] < 1 or nums[3] - nums[1] < 1: return f"bad MediaBox {box.decode()}"
+    return None
 
 def validate(path, fmt):
     if os.path.isdir(path):
@@ -34,10 +49,7 @@ def validate(path, fmt):
         if r.returncode != 0 or "pixelWidth" not in r.stdout: return "sips cannot read: " + r.stderr[:200]
         return None
     if fmt == "pdf":
-        r = run(["python3", "-I", "-c", "import sys,subprocess;print(subprocess.run(['mdls','-raw','-name','kMDItemNumberOfPages',sys.argv[1]],capture_output=True,text=True).stdout)", path])
-        with open(path, "rb") as f: head = f.read(5)
-        if head != b"%PDF-": return "not a PDF"
-        return None
+        return pdf_error(path)
     if fmt in ("docx", "pptx", "xlsx", "ods", "epub", "zip", "pages"):
         try:
             with zipfile.ZipFile(path) as z:
@@ -79,6 +91,8 @@ for name in fixtures:
             results.append((name, fmt, "TIMEOUT", 600)); print(f"TIMEOUT {name} -> {fmt}"); continue
         elapsed = time.time() - t
         outs = [l[4:] for l in r.stdout.splitlines() if l.startswith("OUT:")]
+        if (name, fmt) in EXPECTED_ERRORS and r.returncode != 0:
+            results.append((name, fmt, "OK", elapsed)); print(f"OK   {name} -> {fmt} (expected error)"); continue
         if r.returncode != 0 or not outs:
             msg = (r.stderr.strip().splitlines() or ["(no message)"])[-1]
             results.append((name, fmt, "FAIL " + msg, elapsed)); print(f"FAIL {name} -> {fmt}: {msg}")

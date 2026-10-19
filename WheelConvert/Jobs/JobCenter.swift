@@ -66,8 +66,12 @@ final class JobCenter: ObservableObject {
                 job.currentName = url.lastPathComponent
                 job.itemProgress = 0
                 do {
-                    let outputs = try await work(url) { [weak job] fraction in
-                        Task { @MainActor in job?.itemProgress = max(job?.itemProgress ?? 0, min(1, fraction)) }
+                    let outputs = try await work(url) { fraction in
+                        Task { @MainActor in
+                            // A late update from the previous item must not leak into this one.
+                            guard job.currentIndex == index else { return }
+                            job.itemProgress = max(job.itemProgress, min(1, fraction))
+                        }
                     }
                     job.outputs += outputs
                 } catch is CancellationError {
@@ -85,8 +89,8 @@ final class JobCenter: ObservableObject {
         job.currentName = items.count == 1 ? items[0].lastPathComponent : "\(items.count) files"
         start(job) {
             do {
-                job.outputs = try await work { [weak job] fraction in
-                    Task { @MainActor in job?.itemProgress = max(job?.itemProgress ?? 0, min(1, fraction)) }
+                job.outputs = try await work { fraction in
+                    Task { @MainActor in job.itemProgress = max(job.itemProgress, min(1, fraction)) }
                 }
             } catch is CancellationError {
             } catch {
@@ -107,6 +111,7 @@ final class JobCenter: ObservableObject {
     }
 
     private func finish(_ job: JobState) {
+        objectWillChange.send() // isBusy changes with the phase
         if job.task?.isCancelled == true && job.failures.isEmpty {
             job.phase = .cancelled
         } else {

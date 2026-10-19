@@ -12,40 +12,41 @@ enum Converter {
         }
         if values?.isDirectory == true && values?.isPackage != true {
             guard target.category == .archives else { throw WheelError("Folders can only become archives.") }
-            let staging = try Publisher.staging(for: source)
-            let file = staging.url.appendingPathComponent(OutputNaming.baseName(of: source) + "." + target.fileExtension)
-            try await ArchiveConverter.archiveFolder(source, to: target, options: options, destination: file)
-            return [try staging.publish([file], source: source)]
+            return [try await Publisher.publish(for: source) { staging in
+                let file = staging.url.appendingPathComponent(OutputNaming.baseName(of: source) + "." + target.fileExtension)
+                try await ArchiveConverter.archiveFolder(source, to: target, options: options, destination: file)
+                return [file]
+            }]
         }
         guard let input = FileFormat.detect(source) else { throw WheelError("This file type is not supported.") }
         guard ConversionMatrix.outputs(for: input).contains(target) else {
             throw WheelError("Conversion from \(input.title) to \(target.title) is unavailable.")
         }
-        let staging = try Publisher.staging(for: source)
         let base = OutputNaming.baseName(of: source)
-        let single = staging.url.appendingPathComponent(OutputNaming.sanitize(base) + "." + target.fileExtension)
-        var outputs: [URL] = [single]
-
-        switch input.category {
-        case .images:
-            try await ImageConverter.convert(source, from: input, to: target, options: options, destination: single)
-        case .video, .audio:
-            try await MediaConverter.convert(source, from: input, to: target, options: options, destination: single, progress: progress)
-        case .pdf:
-            outputs = try await PDFConverter.convert(source, to: target, options: options, staging: staging.url, base: base, progress: progress)
-        case .documents:
-            try await DocumentConverter.convert(source, from: input, to: target, options: options, destination: single, progress: progress)
-        case .slides:
-            outputs = try await OfficeHelper.slides(source, to: target, staging: staging.url, base: base, progress: progress)
-        case .spreadsheets:
-            outputs = try await OfficeHelper.spreadsheet(source, from: input, to: target, staging: staging.url, base: base, progress: progress)
-        case .subtitles:
-            try SubtitleConverter.convert(source, from: input, to: target, destination: single)
-        case .archives:
-            try await ArchiveConverter.convert(source, from: input, to: target, options: options, destination: single)
-        }
-        progress(1)
-        return [try staging.publish(outputs, source: source)]
+        return [try await Publisher.publish(for: source) { staging in
+            let single = staging.url.appendingPathComponent(OutputNaming.sanitize(base) + "." + target.fileExtension)
+            var outputs: [URL] = [single]
+            switch input.category {
+            case .images:
+                try await ImageConverter.convert(source, from: input, to: target, options: options, destination: single)
+            case .video, .audio:
+                try await MediaConverter.convert(source, from: input, to: target, options: options, destination: single, progress: progress)
+            case .pdf:
+                outputs = try await PDFConverter.convert(source, to: target, options: options, staging: staging.url, base: base, progress: progress)
+            case .documents:
+                try await DocumentConverter.convert(source, from: input, to: target, options: options, destination: single, progress: progress)
+            case .slides:
+                outputs = try await OfficeHelper.slides(source, to: target, staging: staging.url, base: base, progress: progress)
+            case .spreadsheets:
+                outputs = try await OfficeHelper.spreadsheet(source, from: input, to: target, staging: staging.url, base: base, progress: progress)
+            case .subtitles:
+                try SubtitleConverter.convert(source, from: input, to: target, destination: single)
+            case .archives:
+                try await ArchiveConverter.convert(source, from: input, to: target, options: options, destination: single)
+            }
+            progress(1)
+            return outputs
+        }]
     }
 }
 
@@ -94,6 +95,18 @@ enum Publisher {
         let directory = source.deletingLastPathComponent()
         if FileManager.default.isWritableFile(atPath: directory.path) { return directory }
         return FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first ?? FileManager.default.temporaryDirectory
+    }
+
+    /// Runs `body` in a fresh staging folder and publishes the files it returns. A failed or
+    /// cancelled job leaves nothing behind.
+    static func publish(for source: URL, _ body: (Staging) async throws -> [URL]) async throws -> URL {
+        let staging = try staging(for: source)
+        do {
+            return try staging.publish(try await body(staging), source: source)
+        } catch {
+            try? FileManager.default.removeItem(at: staging.url)
+            throw error
+        }
     }
 
     static func staging(for source: URL) throws -> Staging {

@@ -6,6 +6,10 @@ enum CommandLineMode {
         let args = CommandLine.arguments
         Task { @MainActor in
             do {
+                if let i = args.firstIndex(of: "--snapshot") {
+                    try await SnapshotMode.run(Array(args[(i + 1)...]))
+                    exit(0)
+                }
                 if let i = args.firstIndex(of: "--outputs"), i + 1 < args.count {
                     let url = URL(fileURLWithPath: args[i + 1])
                     let formats = FileFormat.detect(url).map { ConversionMatrix.outputs(for: $0) } ?? []

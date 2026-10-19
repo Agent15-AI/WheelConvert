@@ -38,9 +38,10 @@ enum PDFTools {
         return try await AtomicOutput.write(to: destination) { try FileManager.default.copyItem(at: best, to: $0) }
     }
 
-    /// Redraws every page through a Quartz filter that resamples and JPEG-compresses images.
+    /// Saves the document through a Quartz filter that resamples and JPEG-compresses its images, the way
+    /// Preview's "Reduce File Size" does. Text, vector art, links, annotations and page rotation are kept.
     static func render(_ document: PDFDocument, to url: URL, dpi: Int, quality: Double) throws {
-        let filterURL = FileManager.default.temporaryDirectory.appendingPathComponent("wheelconvert-\(dpi)-\(Int(quality * 100)).qfilter")
+        let filterURL = FileManager.default.temporaryDirectory.appendingPathComponent("wheelconvert-\(UUID().uuidString).qfilter")
         let plist: [String: Any] = [
             "Domains": ["Applications": true, "Printing": true],
             "FilterType": 1,
@@ -52,40 +53,10 @@ enum PDFTools {
         ]
         try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0).write(to: filterURL)
         defer { try? FileManager.default.removeItem(at: filterURL) }
-        guard let filter = QuartzFilter(url: filterURL), let consumer = CGDataConsumer(url: url as CFURL) else {
-            throw WheelError("The macOS PDF compression filter is unavailable.")
-        }
-        var box = CGRect(x: 0, y: 0, width: 612, height: 792)
-        var info: [CFString: Any] = [kCGPDFContextCreator: "WheelConvert"]
-        if let title = document.documentAttributes?[PDFDocumentAttribute.titleAttribute] as? String { info[kCGPDFContextTitle] = title }
-        if let author = document.documentAttributes?[PDFDocumentAttribute.authorAttribute] as? String { info[kCGPDFContextAuthor] = author }
-        guard let context = CGContext(consumer: consumer, mediaBox: &box, info as CFDictionary) else { throw WheelError("Could not create the compressed PDF.") }
-        guard filter.apply(to: context) else { throw WheelError("The macOS PDF compression filter is unavailable.") }
-        for index in 0..<document.pageCount {
-            guard let page = document.page(at: index), let ref = page.pageRef else { continue }
-            var media = page.bounds(for: .mediaBox)
-            guard media.width > 0, media.height > 0 else { throw WheelError("Could not read PDF page \(index + 1).") }
-            let crop = page.bounds(for: .cropBox)
-            context.beginPage(mediaBox: &media)
-            if crop != media { context.clip(to: crop) }
-            // drawPDFPage applies the page's own rotation through its draw transform.
-            context.saveGState()
-            let transform = ref.getDrawingTransform(.mediaBox, rect: media, rotate: 0, preserveAspectRatio: true)
-            context.concatenate(transform)
-            context.drawPDFPage(ref)
-            context.restoreGState()
-            context.endPage()
-        }
-        context.closePDF()
-        filter.remove(from: context)
-        // Page rotation isn't carried by the redraw, so restore it.
-        if let output = PDFDocument(url: url), output.pageCount == document.pageCount {
-            var changed = false
-            for i in 0..<document.pageCount where (document.page(at: i)?.rotation ?? 0) != 0 {
-                output.page(at: i)?.rotation = document.page(at: i)!.rotation
-                changed = true
-            }
-            if changed { output.write(to: url) }
+        guard let filter = QuartzFilter(url: filterURL) else { throw WheelError("The macOS PDF compression filter is unavailable.") }
+        guard document.write(to: url, withOptions: [PDFDocumentWriteOption(rawValue: "QuartzFilter"): filter]),
+              PDFDocument(url: url)?.pageCount == document.pageCount else {
+            throw WheelError("Could not create the compressed PDF.")
         }
     }
 
@@ -167,18 +138,19 @@ enum PDFTools {
             groups = try parseRanges(options.ranges, pageCount: count)
         }
         guard groups.count >= 1 else { throw WheelError("Enter at least one page range.") }
-        let staging = try Publisher.staging(for: source)
         let base = OutputNaming.sanitize(OutputNaming.baseName(of: source))
-        var files: [URL] = []
-        for group in groups {
-            let part = PDFDocument()
-            for i in group { if let page = document.page(at: i)?.copy() as? PDFPage { part.insert(page, at: part.pageCount) } }
-            let label = group.count == 1 ? "\(group.lowerBound + 1)" : "\(group.lowerBound + 1)-\(group.upperBound + 1)"
-            let file = staging.url.appendingPathComponent("\(base) Pages \(label).pdf")
-            guard part.write(to: file) else { throw WheelError("Could not write page \(label).") }
-            files.append(file)
+        return try await Publisher.publish(for: source) { staging in
+            var files: [URL] = []
+            for group in groups {
+                let part = PDFDocument()
+                for i in group { if let page = document.page(at: i)?.copy() as? PDFPage { part.insert(page, at: part.pageCount) } }
+                let label = group.count == 1 ? "\(group.lowerBound + 1)" : "\(group.lowerBound + 1)-\(group.upperBound + 1)"
+                let file = staging.url.appendingPathComponent("\(base) Pages \(label).pdf")
+                guard part.write(to: file) else { throw WheelError("Could not write page \(label).") }
+                files.append(file)
+            }
+            return files
         }
-        return try staging.publish(files, source: source)
     }
 
     /// "1-3, 5, 8-" → zero-based ranges.
@@ -237,6 +209,10 @@ enum MetadataTools {
 
     static func apply(_ source: URL, options: ToolOptions.Metadata, progress: @escaping (Double) -> Void) async throws -> URL {
         guard let format = FileFormat.detect(source) else { throw WheelError("This metadata field is not supported.") }
+        // Field names become ExifTool/ffmpeg arguments; only plain tag names are accepted.
+        guard options.changes.keys.allSatisfy({ !$0.isEmpty && $0.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "_") } }) else {
+            throw WheelError("This metadata field is not supported.")
+        }
         let destination = OutputNaming.tool(source, suffix: options.removeAll ? "Metadata Removed" : "Metadata Edited")
         switch format.category {
         case .pdf:

@@ -379,7 +379,9 @@ enum RichTextReader {
                 if let superscript = attributes[.superscript] as? Int { run.superscript = superscript > 0; run.subscripted = superscript < 0 }
                 if let link = attributes[.link] { run.link = (link as? URL)?.absoluteString ?? link as? String }
                 if let color = attributes[.foregroundColor] as? NSColor, let rgb = color.usingColorSpace(.sRGB) {
-                    let hex = String(format: "%02X%02X%02X", Int(rgb.redComponent * 255), Int(rgb.greenComponent * 255), Int(rgb.blueComponent * 255))
+                    // Extended-range colors can fall outside 0…1; clamp so the hex stays six digits.
+                    let byte = { (c: CGFloat) in max(0, min(255, Int((c * 255).rounded()))) }
+                    let hex = String(format: "%02X%02X%02X", byte(rgb.redComponent), byte(rgb.greenComponent), byte(rgb.blueComponent))
                     if hex != "000000" && hex != "FFFFFF" { run.color = hex }
                 }
                 runs.append(run)

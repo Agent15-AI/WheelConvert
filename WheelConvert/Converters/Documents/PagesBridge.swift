@@ -63,7 +63,10 @@ enum PagesBridge {
         context.evaluateScript(script)
         if let failure { throw WheelError("The native Pages writer failed: \(failure)") }
         let result = context.objectForKeyedSubscript(function)?.call(withArguments: arguments)
-        if let failure { throw WheelError(function == "wcPagesRead" ? "This Pages document could not be read: \(failure)" : "The native Pages writer failed: \(failure)") }
+        if let failure {
+            throw WheelError(function == "wcPagesRead" ? "This Pages document couldn’t be read. It may be damaged, password-protected or from an unsupported Pages version."
+                                                       : "The Pages document couldn’t be created: \(failure)")
+        }
         guard let text = result?.toString(), result?.isString == true else { throw WheelError("The native Pages writer is unavailable.") }
         return text
     }
@@ -179,7 +182,10 @@ enum PagesBridge {
                 let rows = table.rows.map { $0.flatMap { cell -> [String] in [cell.plainText] + Array(repeating: "", count: max(0, cell.columnSpan - 1)) } }
                 blocks.append(["type": "table", "rows": rows, "headerRows": table.headerRows])
             case .image(let image):
-                let data = ImageSniffer.portable(image.data)
+                guard let data = ImageSniffer.raster(image.data) else {
+                    if let alt = image.alt { blocks.append(["type": "paragraph", "alignment": 2, "runs": [["text": "[\(alt)]"]]]) }
+                    return
+                }
                 var item: [String: Any] = ["type": "image", "data": data.base64EncodedString(), "name": "image.\(ImageSniffer.fileExtension(data))"]
                 if let w = image.width { item["width"] = w }
                 if let h = image.height { item["height"] = h }

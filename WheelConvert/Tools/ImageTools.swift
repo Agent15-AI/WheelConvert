@@ -77,7 +77,6 @@ enum ImageTools {
             }
             return try best ?? encodeImage(image, format: format, quality: 0.05)
         case .png:
-            let hasAlpha = image.hasAlpha
             if target == nil && strength == .light { return try encodeImage(image, format: .png, quality: 1) }
             let palettes = target == nil ? [strength == .strong ? 96 : 256] : [256, 160, 96, 64, 32]
             var last = Data()
@@ -86,7 +85,6 @@ enum ImageTools {
                 if let target, Int64(last.count) > target { continue }
                 return last
             }
-            _ = hasAlpha
             return last
         default:
             // TIFF and BMP have no lossy mode; they shrink by size only.
@@ -105,11 +103,15 @@ enum ImageTools {
         let width = max(1, Int(CGFloat(image.width) * scale)), height = max(1, Int(CGFloat(image.height) * scale))
         guard width < image.width || height < image.height,
               let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
-                                      space: image.colorSpace ?? CGColorSpace(name: CGColorSpace.sRGB)!,
-                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+                                      space: rgbSpace(of: image), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
         context.interpolationQuality = .high
         context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
         return context.makeImage()
+    }
+
+    /// The image's own color space when it is RGB; RGBA bitmap contexts can't use gray or CMYK spaces.
+    static func rgbSpace(of image: CGImage) -> CGColorSpace {
+        image.colorSpace.flatMap { $0.model == .rgb ? $0 : nil } ?? CGColorSpace(name: CGColorSpace.sRGB)!
     }
 
     /// Writes an edited image next to its source in the source's format (PNG when transparency must survive).
@@ -136,8 +138,7 @@ enum ImageTools {
         var result = cropped
         if options.outputWidth > 0 && options.outputHeight > 0 {
             guard let context = CGContext(data: nil, width: options.outputWidth, height: options.outputHeight, bitsPerComponent: 8, bytesPerRow: 0,
-                                          space: cropped.colorSpace ?? CGColorSpace(name: CGColorSpace.sRGB)!,
-                                          bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { throw WheelError("Could not create the cropped image.") }
+                                          space: rgbSpace(of: cropped), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { throw WheelError("Could not create the cropped image.") }
             context.interpolationQuality = .high
             context.draw(cropped, in: CGRect(x: 0, y: 0, width: options.outputWidth, height: options.outputHeight))
             guard let scaled = context.makeImage() else { throw WheelError("Could not create the cropped image.") }
@@ -299,7 +300,7 @@ enum ImageTools {
                 ])
             img = noise.applyingFilter("CISoftLightBlendMode", parameters: [kCIInputBackgroundImageKey: img]).cropped(to: extent)
         }
-        let space = image.colorSpace.flatMap { $0.model == .rgb ? $0 : nil } ?? CGColorSpace(name: CGColorSpace.sRGB)!
+        let space = rgbSpace(of: image)
         guard let output = ciContext.createCGImage(img.cropped(to: extent), from: extent, format: .RGBA8, colorSpace: space) else {
             throw WheelError("Could not render the photo adjustments.")
         }
@@ -336,7 +337,7 @@ enum ImageTools {
             }
             base = patch.composited(over: base)
         }
-        let space = image.colorSpace.flatMap { $0.model == .rgb ? $0 : nil } ?? CGColorSpace(name: CGColorSpace.sRGB)!
+        let space = rgbSpace(of: image)
         guard let output = ciContext.createCGImage(base, from: extent, format: .RGBA8, colorSpace: space) else {
             throw WheelError("Could not prepare the redacted photo.")
         }
@@ -497,15 +498,7 @@ enum ImageTools {
     static func readCodes(_ sources: [URL], progress: (Double) -> Void) throws -> [Code] {
         var codes: [Code] = []
         for (index, url) in sources.enumerated() {
-            var images: [(CGImage, Int?)] = []
-            if FileFormat.detect(url) == .pdf, let document = PDFDocument(url: url) {
-                for i in 0..<min(document.pageCount, 200) {
-                    if let page = document.page(at: i), let image = PDFStructureReader.render(page, scale: 2.5) { images.append((image, i + 1)) }
-                }
-            } else {
-                images.append((try ImageConverter.load(url).cgImage, nil))
-            }
-            for (image, page) in images {
+            func scan(_ image: CGImage, page: Int?) throws {
                 let request = VNDetectBarcodesRequest()
                 try VNImageRequestHandler(cgImage: image, options: [:]).perform([request])
                 for result in request.results ?? [] {
@@ -514,6 +507,16 @@ enum ImageTools {
                     let name = result.symbology.rawValue.replacingOccurrences(of: "VNBarcodeSymbology", with: "")
                     codes.append(Code(source: url.lastPathComponent, page: page, payload: payload, symbology: name))
                 }
+            }
+            if FileFormat.detect(url) == .pdf, let document = PDFDocument(url: url) {
+                // One page image at a time: a long PDF rendered up front would need gigabytes.
+                for i in 0..<min(document.pageCount, 200) {
+                    try autoreleasepool {
+                        if let page = document.page(at: i), let image = PDFStructureReader.render(page, scale: 2.5) { try scan(image, page: i + 1) }
+                    }
+                }
+            } else {
+                try scan(try ImageConverter.load(url).cgImage, page: nil)
             }
             progress(Double(index + 1) / Double(sources.count))
         }

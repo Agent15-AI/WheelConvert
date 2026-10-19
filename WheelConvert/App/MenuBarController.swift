@@ -14,9 +14,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         item.button?.setAccessibilityLabel("WheelConvert")
         menu.delegate = self
         item.menu = menu
-        Task { @MainActor in
-            JobCenter.shared.$jobs.receive(on: DispatchQueue.main).sink { [weak self] _ in
-                DispatchQueue.main.async { self?.item.button?.image = Self.icon(busy: JobCenter.shared.isBusy) }
+        MainActor.assumeIsolated {
+            JobCenter.shared.objectWillChange.sink { [weak self] _ in
+                // objectWillChange fires before the change lands; read the state on the next turn.
+                DispatchQueue.main.async { self?.item.button?.image = Self.icon(busy: MainActor.assumeIsolated { JobCenter.shared.isBusy }) }
             }.store(in: &observers)
         }
     }

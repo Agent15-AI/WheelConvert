@@ -324,22 +324,23 @@ enum MediaTools {
         let info = try await MediaInfo.probe(source)
         let times = options.times.filter { $0 >= 0 && $0 <= info.duration + 0.001 }.sorted()
         guard !times.isEmpty else { throw WheelError("Select at least one frame within the video.") }
-        let staging = try Publisher.staging(for: source)
-        var files: [URL] = []
-        for (i, time) in times.enumerated() {
-            let name = String(format: "Frame %03d - %.3fs.png", i + 1, time)
-            let file = staging.url.appendingPathComponent(name)
-            try await FFmpeg.run(["-ss", String(format: "%.3f", time), "-i", source.path, "-frames:v", "1", "-update", "1", file.path], duration: 0) { _ in }
-            guard FileManager.default.fileExists(atPath: file.path) else { throw WheelError("No frame is available at this time. Choose an earlier frame.") }
-            files.append(file)
-            progress(Double(i + 1) / Double(times.count))
+        return try await Publisher.publish(for: source) { staging in
+            var files: [URL] = []
+            for (i, time) in times.enumerated() {
+                let name = String(format: "Frame %03d - %.3fs.png", i + 1, time)
+                let file = staging.url.appendingPathComponent(name)
+                try await FFmpeg.run(["-ss", String(format: "%.3f", time), "-i", source.path, "-frames:v", "1", "-update", "1", file.path], duration: 0) { _ in }
+                guard FileManager.default.fileExists(atPath: file.path) else { throw WheelError("No frame is available at this time. Choose an earlier frame.") }
+                files.append(file)
+                progress(Double(i + 1) / Double(times.count))
+            }
+            if files.count == 1 {
+                let renamed = staging.url.appendingPathComponent("\(OutputNaming.baseName(of: source)) \(String(format: "%.3fs", times[0])).png")
+                try FileManager.default.moveItem(at: files[0], to: renamed)
+                files = [renamed]
+            }
+            return files
         }
-        if files.count == 1 {
-            let renamed = staging.url.appendingPathComponent("\(OutputNaming.baseName(of: source)) \(String(format: "%.3fs", times[0])).png")
-            try FileManager.default.moveItem(at: files[0], to: renamed)
-            files = [renamed]
-        }
-        return try staging.publish(files, source: source)
     }
 
     static func clips(points: [Double], duration: Double) -> [(Double, Double)] {
@@ -371,24 +372,25 @@ enum MediaTools {
             args += format == .gif ? ["-loop", "0"] : videoEncoder(format, quality: 75)
             return try await render(args, to: output(source, suffix: "Edited"), duration: kept.map { $0.1 - $0.0 }.reduce(0, +), progress: progress)
         }
-        let staging = try Publisher.staging(for: source)
-        var files: [URL] = []
         let total = parts.map { $0.1 - $0.0 }.reduce(0, +)
-        var done = 0.0
-        for (i, part) in parts.enumerated() {
-            let file = staging.url.appendingPathComponent("\(OutputNaming.sanitize(OutputNaming.baseName(of: source))) Part \(i + 1).\(format.fileExtension)")
-            var args = ["-ss", String(format: "%.3f", part.0), "-t", String(format: "%.3f", part.1 - part.0), "-i", source.path]
-            if format == .gif {
-                args += ["-filter_complex", "[0:v]split[a][b];[a]palettegen[p];[b][p]paletteuse[g]", "-map", "[g]", "-loop", "0"]
-            } else {
-                args += ["-map", "0:v:0", "-map", "0:a?"] + encode
+        return try await Publisher.publish(for: source) { staging in
+            var files: [URL] = []
+            var done = 0.0
+            for (i, part) in parts.enumerated() {
+                let file = staging.url.appendingPathComponent("\(OutputNaming.sanitize(OutputNaming.baseName(of: source))) Part \(i + 1).\(format.fileExtension)")
+                var args = ["-ss", String(format: "%.3f", part.0), "-t", String(format: "%.3f", part.1 - part.0), "-i", source.path]
+                if format == .gif {
+                    args += ["-filter_complex", "[0:v]split[a][b];[a]palettegen[p];[b][p]paletteuse[g]", "-map", "[g]", "-loop", "0"]
+                } else {
+                    args += ["-map", "0:v:0", "-map", "0:a?"] + encode
+                }
+                let done0 = done
+                try await FFmpeg.run(args + [file.path], duration: part.1 - part.0) { progress((done0 + $0 * (part.1 - part.0)) / total) }
+                done += part.1 - part.0
+                files.append(file)
             }
-            let done0 = done
-            try await FFmpeg.run(args + [file.path], duration: part.1 - part.0) { progress((done0 + $0 * (part.1 - part.0)) / total) }
-            done += part.1 - part.0
-            files.append(file)
+            return files
         }
-        return try staging.publish(files, source: source)
     }
 
     // MARK: Redact video
@@ -402,8 +404,9 @@ enum MediaTools {
         var current = "v0"
         let color = options.color.filter(\.isHexDigit)
         for (i, region) in options.regions.enumerated() {
-            let x = Int(region.x * w), y = Int(region.y * h)
-            let rw = max(2, Int(region.width * w) / 2 * 2), rh = max(2, Int(region.height * h) / 2 * 2)
+            // Clamped into the frame: crop fails on any rectangle that reaches past an edge.
+            let x = min(max(0, Int(region.x * w)), Int(w) - 2), y = min(max(0, Int(region.y * h)), Int(h) - 2)
+            let rw = max(2, min(Int(region.width * w), Int(w) - x) / 2 * 2), rh = max(2, min(Int(region.height * h), Int(h) - y) / 2 * 2)
             var enable = ""
             if let start = region.start, let end = region.end, end > start {
                 enable = ":enable='between(t,\(String(format: "%.3f", start)),\(String(format: "%.3f", end)))'"
@@ -537,13 +540,15 @@ enum MediaTools {
         return result.map { $0.map { min(1, $0 / peak) } }
     }
 
-    /// Evenly spaced thumbnails in one ffmpeg pass.
+    /// Evenly spaced thumbnails. Seeking to each one decodes a few frames instead of the whole video.
     static func thumbnails(_ source: URL, count: Int, height: Int = 90, duration: Double) async throws -> [CGImage] {
-        guard duration > 0 else { return [] }
-        let fps = Double(count) / duration
-        let output = try await ProcessRunner.run(Bundled.ffmpeg, ["-v", "error", "-i", source.path, "-map", "0:v:0",
-                                                                  "-vf", "fps=\(fps),scale=-2:\(height)", "-frames:v", "\(count)", "-f", "image2pipe", "-c:v", "mjpeg", "-q:v", "5", "-"])
-        return splitJPEGs(output.stdout)
+        guard duration > 0, count > 0 else { return [] }
+        var images: [CGImage] = []
+        for i in 0..<count {
+            let time = (Double(i) + 0.5) * duration / Double(count)
+            if let image = try? await frame(source, at: time, maxHeight: height) { images.append(image) }
+        }
+        return images
     }
 
     static func frame(_ source: URL, at time: Double, maxHeight: Int = 720) async throws -> CGImage {
@@ -553,23 +558,6 @@ enum MediaTools {
             throw WheelError("Could not decode the selected frame preview.")
         }
         return image
-    }
-
-    static func splitJPEGs(_ data: Data) -> [CGImage] {
-        var images: [CGImage] = []
-        let bytes = [UInt8](data)
-        var start: Int?
-        var i = 0
-        while i + 1 < bytes.count {
-            if bytes[i] == 0xFF && bytes[i + 1] == 0xD8 && start == nil { start = i }
-            if bytes[i] == 0xFF && bytes[i + 1] == 0xD9, let s = start {
-                let piece = Data(bytes[s...(i + 1)])
-                if let source = CGImageSourceCreateWithData(piece as CFData, nil), let image = CGImageSourceCreateImageAtIndex(source, 0, nil) { images.append(image) }
-                start = nil
-            }
-            i += 1
-        }
-        return images
     }
 
     /// A playable preview copy for formats AVFoundation can't open (OGG, Opus, WMA, MKV, WebM, AVI…).

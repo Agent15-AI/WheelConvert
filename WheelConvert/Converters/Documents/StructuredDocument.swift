@@ -193,6 +193,13 @@ enum ImageSniffer {
         }
     }
 
+    /// PNG, JPEG or GIF bytes for formats that only accept those (DOCX, Pages); nil when the image
+    /// can't be decoded (SVG without a raster version, unknown data).
+    static func raster(_ data: Data) -> Data? {
+        let converted = portable(data)
+        return ["image/png", "image/jpeg", "image/gif"].contains(mime(converted)) ? converted : nil
+    }
+
     static func pixelSize(_ data: Data) -> CGSize? {
         guard let source = CGImageSourceCreateWithData(data as CFData, nil),
               let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],

@@ -84,7 +84,10 @@ struct DOCXWriter {
         case .table(let table):
             return self.table(table)
         case .image(let image):
-            let data = ImageSniffer.portable(image.data)
+            // An image Word can't display would make it reject the whole file; keep its description instead.
+            guard let data = ImageSniffer.raster(image.data) else {
+                return image.alt.map { paragraph(.init(runs: [.init("[\($0)]")], alignment: .center), numId: nil) } ?? ""
+            }
             let id = addImage(data)
             var (w, h) = displaySize(image, data: data)
             if w > contentWidth { h *= contentWidth / w; w = contentWidth }
@@ -337,7 +340,7 @@ struct DOCXWriter {
     }
 
     private func styles(header: String, language: String?) -> String {
-        let lang = escape(language ?? Locale.current.identifier.replacingOccurrences(of: "_", with: "-"))
+        let lang = escape(language ?? Locale.current.identifier(.bcp47))
         var xml = header + "<w:styles xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\">"
         xml += "<w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii=\"Calibri\" w:hAnsi=\"Calibri\" w:eastAsia=\"Calibri\" w:cs=\"Calibri\"/><w:sz w:val=\"22\"/><w:szCs w:val=\"22\"/><w:lang w:val=\"\(lang)\"/></w:rPr></w:rPrDefault>"
         xml += "<w:pPrDefault><w:pPr><w:spacing w:after=\"160\" w:line=\"276\" w:lineRule=\"auto\"/></w:pPr></w:pPrDefault></w:docDefaults>"

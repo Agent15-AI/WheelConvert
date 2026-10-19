@@ -23,6 +23,8 @@ enum EPUBWriter {
         for (index, blocks) in chapters.enumerated() {
             var writer = HTMLWriter(images: .referenced({ image in
                 let data = ImageSniffer.portable(image.data)
+                // Undecodable bytes would need a media type EPUB readers reject; point at nothing instead.
+                guard ImageSniffer.mime(data).hasPrefix("image/") else { return "" }
                 if let existing = imageNames[data] { return "images/\(existing)" }
                 let name = "image-\(images.count + 1).\(ImageSniffer.fileExtension(data))"
                 images.append((name, data, ImageSniffer.mime(data)))

@@ -125,25 +125,45 @@ enum ArchiveConverter {
     }
 
     static func convert(_ source: URL, from input: FileFormat, to target: FileFormat, options: ConversionOptions, destination: URL) async throws {
-        // Re-pack straight from the source archive without extracting to disk.
-        var args = ["-c", "-f", destination.path] + formatArguments(target, options: options)
-        args.append("@" + source.path)
-        let result = try await ProcessRunner.run(Bundled.bsdtar, args)
-        if result.status == 0 { return }
-        try? FileManager.default.removeItem(at: destination)
-        // A .gz of a single file (not a tarball): decompress it and archive that file.
-        if input == .gzip {
+        let args = ["-c", "-f", destination.path] + formatArguments(target, options: options)
+        if isPlainGzip(source) {
+            // A .gz of a single file: decompress it, then archive that file (or its contents, if it was a tarball).
             let scratch = try ScratchDirectory()
-            let name = source.deletingPathExtension().lastPathComponent
-            let inner = scratch.file(name.isEmpty ? "file" : name)
-            let unzip = try await ProcessRunner.run(URL(fileURLWithPath: "/usr/bin/gzip"), ["-dc", source.path])
-            guard unzip.status == 0, !unzip.stdout.isEmpty else { throw failure(result.stderr) }
-            try unzip.stdout.write(to: inner)
-            let retry = try await ProcessRunner.run(Bundled.bsdtar, ["-c", "-f", destination.path] + formatArguments(target, options: options) + ["-C", scratch.url.path, inner.lastPathComponent])
-            guard retry.status == 0 else { throw failure(retry.stderr) }
+            let file = try await gunzip(source, into: scratch.url)
+            let result = try await ProcessRunner.run(Bundled.bsdtar, args + (isTar(file) ? ["@" + file.path] : ["-C", scratch.url.path, file.lastPathComponent]))
+            guard result.status == 0 else { try? FileManager.default.removeItem(at: destination); throw failure(result.stderr) }
             return
         }
-        throw failure(result.stderr)
+        // Re-pack straight from the source archive without extracting to disk.
+        let result = try await ProcessRunner.run(Bundled.bsdtar, args + ["@" + source.path])
+        guard result.status == 0 else { try? FileManager.default.removeItem(at: destination); throw failure(result.stderr) }
+    }
+
+    /// "name.gz" that isn't a ".tar.gz"/".tgz". bsdtar would misread its raw contents as a tar header.
+    static func isPlainGzip(_ url: URL) -> Bool {
+        let name = url.lastPathComponent.lowercased()
+        return name.hasSuffix(".gz") && !name.hasSuffix(".tar.gz")
+    }
+
+    /// Decompresses a copy of `source` inside `folder`; gzip names the result without ".gz".
+    static func gunzip(_ source: URL, into folder: URL) async throws -> URL {
+        let copy = folder.appendingPathComponent(source.lastPathComponent)
+        try FileManager.default.copyItem(at: source, to: copy)
+        let result = try await ProcessRunner.run(URL(fileURLWithPath: "/usr/bin/gzip"), ["-d", "-f", copy.path])
+        let file = copy.deletingPathExtension()
+        guard result.status == 0, FileManager.default.fileExists(atPath: file.path) else {
+            try? FileManager.default.removeItem(at: copy)
+            throw failure(result.stderr.isEmpty ? "The archive is damaged." : result.stderr)
+        }
+        return file
+    }
+
+    /// POSIX/GNU tar files carry "ustar" at byte 257.
+    static func isTar(_ url: URL) -> Bool {
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return false }
+        defer { try? handle.close() }
+        let header = (try? handle.read(upToCount: 262)) ?? Data()
+        return header.count == 262 && header.suffix(5) == Data("ustar".utf8)
     }
 
     static func archiveFolder(_ folder: URL, to target: FileFormat, options: ConversionOptions, destination: URL) async throws {
@@ -158,26 +178,36 @@ enum ArchiveConverter {
         let staging = try Publisher.staging(for: archive)
         let folder = staging.url.appendingPathComponent("__results", isDirectory: true)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        var result = try await ProcessRunner.run(Bundled.bsdtar, ["-x", "-f", archive.path, "-C", folder.path, "--no-same-owner"])
-        if result.status != 0, FileFormat.detect(archive) == .gzip {
-            // Single-file .gz
-            let unzip = try await ProcessRunner.run(URL(fileURLWithPath: "/usr/bin/gzip"), ["-dc", archive.path])
-            if unzip.status == 0 {
-                try unzip.stdout.write(to: folder.appendingPathComponent(archive.deletingPathExtension().lastPathComponent))
-                result = ProcessOutput(status: 0, stdout: Data(), stderr: "")
+        var tarball = archive
+        if isPlainGzip(archive) {
+            do { tarball = try await gunzip(archive, into: folder) } catch {
+                try? FileManager.default.removeItem(at: staging.url)
+                throw error
             }
         }
-        guard result.status == 0 else {
-            try? FileManager.default.removeItem(at: staging.url)
-            throw failure(result.stderr)
+        if tarball == archive || isTar(tarball) {
+            let result = try await ProcessRunner.run(Bundled.bsdtar, ["-x", "-f", tarball.path, "-C", folder.path, "--no-same-owner"])
+            if tarball != archive { try? FileManager.default.removeItem(at: tarball) }
+            guard result.status == 0 else {
+                try? FileManager.default.removeItem(at: staging.url)
+                throw failure(result.stderr)
+            }
         }
         let contents = (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? []
         guard !contents.isEmpty else {
             try? FileManager.default.removeItem(at: staging.url)
             throw WheelError("The source archive is empty.")
         }
-        let target = OutputNaming.unique(in: staging.directory, base: OutputNaming.baseName(of: archive), extension: nil)
         defer { try? FileManager.default.removeItem(at: staging.url) }
+        // Like Archive Utility: a single top-level item is placed directly; several get a folder.
+        if contents.count == 1, let only = contents.first {
+            let ext = only.pathExtension
+            let base = ext.isEmpty ? only.lastPathComponent : String(only.lastPathComponent.dropLast(ext.count + 1))
+            let target = OutputNaming.unique(in: staging.directory, base: base, extension: ext.isEmpty ? nil : ext)
+            try FileManager.default.moveItem(at: only, to: target)
+            return target
+        }
+        let target = OutputNaming.unique(in: staging.directory, base: OutputNaming.baseName(of: archive), extension: nil)
         try FileManager.default.moveItem(at: folder, to: target)
         return target
     }
@@ -185,7 +215,9 @@ enum ArchiveConverter {
     static func failure(_ stderr: String) -> WheelError {
         let lower = stderr.lowercased()
         if lower.contains("passphrase") || lower.contains("encrypt") { return WheelError("Encrypted or password-protected archives are not supported.") }
-        if lower.contains("unrecognized archive format") { return WheelError("The archive is damaged or uses an unsupported format.") }
+        if lower.contains("unrecognized archive format") || lower.contains("error exit delayed") || lower.contains("truncated") || lower.contains("damaged") {
+            return WheelError("The archive is damaged or uses an unsupported format.")
+        }
         let line = stderr.split(whereSeparator: \.isNewline).last.map(String.init) ?? ""
         return WheelError(line.isEmpty ? "The archive could not be converted." : "The archive could not be converted: \(line.replacingOccurrences(of: "tar: ", with: ""))")
     }

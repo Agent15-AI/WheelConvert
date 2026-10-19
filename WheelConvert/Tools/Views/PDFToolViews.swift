@@ -71,8 +71,7 @@ struct OrganizePDFView: View {
             }
             .rotationEffect(.degrees(Double(page.rotation)))
             .frame(width: 120, height: 150)
-            .background(Color.white)
-            .shadow(radius: 1)
+            .background(Color.white.shadow(radius: 1))
             .overlay(RoundedRectangle(cornerRadius: 3).stroke(selection == page.id ? Color(nsColor: Brand.accent) : .clear, lineWidth: 3))
             Text("\(index + 1)" + (page.source != index ? " · was \(page.source + 1)" : "")).font(.caption).foregroundStyle(.secondary)
         }

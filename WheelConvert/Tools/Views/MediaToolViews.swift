@@ -155,7 +155,7 @@ struct CropVideoView: View {
             }
         }
         .task {
-            await preview.load(video: true)
+            await preview.load(video: true, playback: false)
             frame = try? await MediaTools.frame(url, at: 0)
         }
         .task(id: frameTime) {
@@ -190,8 +190,11 @@ struct SpeedView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
                         ForEach([0.25, 0.5, 0.75, 1.25, 1.5, 2, 3, 4], id: \.self) { value in
-                            Button(Self.format(value)) { options.factor = value }.buttonStyle(.bordered)
-                                .tint(options.factor == value ? Color(nsColor: Brand.accent) : nil)
+                            if options.factor == value {
+                                Button(Self.format(value)) { options.factor = value }.buttonStyle(.borderedProminent)
+                            } else {
+                                Button(Self.format(value)) { options.factor = value }.buttonStyle(.bordered)
+                            }
                         }
                     }
                     LabeledSlider(title: "Speed", value: $options.factor, range: 0.25...4, step: 0.05, format: Self.format, neutral: 1)
@@ -269,7 +272,9 @@ struct SnapshotsView: View {
     }
 
     private func add(_ time: Double) {
-        let rounded = (time * 1000).rounded() / 1000
+        // The playhead can rest at the very end, where there is no frame left to grab.
+        let lastFrame = max(0, preview.duration - 1 / max(1, preview.info?.frameRate ?? 30))
+        let rounded = (min(time, lastFrame) * 1000).rounded() / 1000
         if !times.contains(where: { abs($0 - rounded) < 0.001 }) { times.append(rounded); times.sort() }
     }
 }
@@ -295,8 +300,8 @@ struct SplitVideoView: View {
     private var clips: [(Double, Double)] { MediaTools.clips(points: points, duration: preview.duration) }
 
     var body: some View {
-        ToolFrame(primary: removed.isEmpty ? "Export \(clips.count) Clips" : "Export One Video", canApply: clips.count >= 2 && removed.count < clips.count,
-                  note: removed.isEmpty ? "Every clip is saved in one folder. Remove clips to join the rest instead." : "Removed clips are cut; the rest are joined.",
+        ToolFrame(primary: !removed.isEmpty ? "Export One Video" : clips.count >= 2 ? "Export \(clips.count) Clips" : "Export Clips", canApply: clips.count >= 2 && removed.count < clips.count,
+                  note: clips.count < 2 ? "Add split points at the playhead or split evenly." : removed.isEmpty ? "Every clip is saved in one folder. Remove clips to join the rest instead." : "Removed clips are cut; the rest are joined.",
                   cancel: { preview.stop(); close() }, apply: {
                       preview.stop()
                       apply(.init(points: points, removed: Array(removed), export: removed.isEmpty ? .clips : .merged))
@@ -363,7 +368,7 @@ struct RedactVideoView: View {
     }
 
     var body: some View {
-        ToolFrame(primary: "Save Redacted Copy", canApply: !rects.isEmpty, note: style == .blur ? "Blur softens details. Use Solid for sensitive information." : nil,
+        ToolFrame(primary: "Save Redacted Copy", canApply: !rects.isEmpty, note: rects.isEmpty ? "Drag on the video to cover an area." : style == .blur ? "Blur softens details. Use Solid for sensitive information." : nil,
                   cancel: { preview.stop(); close() }, apply: {
                       preview.stop()
                       let regions = rects.indices.map { i -> ToolOptions.Redaction in
@@ -403,7 +408,7 @@ struct RedactVideoView: View {
             }
         }
         .task {
-            await preview.load(video: true, thumbnails: 14)
+            await preview.load(video: true, thumbnails: 14, playback: false)
             frame = try? await MediaTools.frame(url, at: 0)
         }
         .task(id: Int(preview.time * 4)) {
@@ -445,9 +450,9 @@ struct NormalizeView: View {
                     Text("Broadcast (−23 LUFS)").tag(-23.0)
                     if ![-16.0, -14, -23].contains(options.targetLoudness) { Text("Custom").tag(options.targetLoudness) }
                 }
-                LabeledSlider(title: "Target loudness", value: $options.targetLoudness, range: -40 ... -5, step: 0.5, format: { String(format: "%.1f LUFS", $0) }, neutral: -16)
-                LabeledSlider(title: "Loudness range", value: $options.loudnessRange, range: 1...50, step: 0.5, format: { String(format: "%.1f LU", $0) }, neutral: 11)
-                LabeledSlider(title: "True peak", value: $options.truePeak, range: -9...0, step: 0.1, format: { String(format: "%.1f dBTP", $0) }, neutral: -1.5)
+                LabeledSlider(title: "Target loudness", value: $options.targetLoudness, range: -40 ... -5, step: 0.5, format: { String(format: "%.1f LUFS", $0) }, neutral: -16, valueWidth: 84)
+                LabeledSlider(title: "Loudness range", value: $options.loudnessRange, range: 1...50, step: 0.5, format: { String(format: "%.1f LU", $0) }, neutral: 11, valueWidth: 84)
+                LabeledSlider(title: "True peak", value: $options.truePeak, range: -9...0, step: 0.1, format: { String(format: "%.1f dBTP", $0) }, neutral: -1.5, valueWidth: 84)
                 Text("−16 LUFS is a balanced default for spoken audio and music. The true peak limit helps prevent clipping after encoding.")
                     .font(.callout).foregroundStyle(.secondary)
                 LabeledContent("Current loudness", value: measured ?? "Measuring…")
@@ -594,7 +599,7 @@ struct BleepView: View {
         }) {
             VStack(spacing: 10) {
                 Timeline(duration: preview.duration, waveform: preview.waveform.first ?? [], playhead: $preview.time,
-                         range: selectedBinding, spans: ranges, spanColor: .red, onScrub: { preview.seek($0) }, height: 120)
+                         range: selectedBinding, spans: ranges, spanColor: .red, onScrub: { preview.seek($0) }, height: 200)
                     .padding(.horizontal, 16).padding(.top, 16)
                 HStack {
                     TransportBar(preview: preview, showsFrameStep: false)
@@ -613,7 +618,13 @@ struct BleepView: View {
                         Text("Bleep \(index + 1): \(TimeText.format(range.lowerBound)) – \(TimeText.format(range.upperBound))").tag(index)
                     }
                 }
-                .frame(height: 120)
+                .frame(maxHeight: .infinity)
+                .overlay {
+                    if ranges.isEmpty {
+                        Text("Move the playhead to the word, then click Add Bleep at Playhead. Drag the selected range’s edges to adjust it.")
+                            .font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center).padding(24)
+                    }
+                }
                 .padding(.horizontal, 16).padding(.bottom, 8)
             }
         }

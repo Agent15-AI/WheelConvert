@@ -48,6 +48,7 @@ struct LabeledSlider: View {
     var step: Double? = nil
     var format: (Double) -> String = { String(format: "%.0f", $0) }
     var neutral: Double = 0
+    var valueWidth: CGFloat = 48
 
     var body: some View {
         HStack(spacing: 8) {
@@ -59,7 +60,7 @@ struct LabeledSlider: View {
             } else {
                 Slider(value: $value, in: range).accessibilityLabel(title)
             }
-            Text(format(value)).monospacedDigit().foregroundStyle(.secondary).frame(width: 48, alignment: .trailing)
+            Text(format(value)).monospacedDigit().foregroundStyle(.secondary).lineLimit(1).fixedSize().frame(minWidth: valueWidth, alignment: .trailing)
         }
         .font(.callout)
     }
@@ -144,17 +145,28 @@ final class MediaPreview: ObservableObject {
     @Published var error: String?
     private var observer: Any?
     private var stopAt: Double?
-    private var previewFile: URL?
+    nonisolated(unsafe) private var previewFile: URL?
     let url: URL
 
     init(url: URL) { self.url = url }
 
+    deinit {
+        // Closing the window without Cancel still removes the preview copy; the player stops as it's released.
+        if let previewFile { try? FileManager.default.removeItem(at: previewFile) }
+    }
+
     var duration: Double { info?.duration ?? 0 }
 
-    func load(video: Bool, thumbnails count: Int = 0, waveformBins: Int = 0, stereo: Bool = false) async {
+    /// - Parameter playback: false for tools that only show still frames; skips building a player
+    ///   (and the preview transcode formats AVFoundation can't play would need).
+    func load(video: Bool, thumbnails count: Int = 0, waveformBins: Int = 0, stereo: Bool = false, playback: Bool = true) async {
         do {
             let info = try await MediaInfo.probe(url)
             self.info = info
+            if !playback {
+                if count > 0, info.hasVideo { thumbnails = (try? await MediaTools.thumbnails(url, count: count, duration: info.duration)) ?? [] }
+                return
+            }
             let asset = AVURLAsset(url: url)
             var playable = (try? await asset.load(.isPlayable)) ?? false
             if playable, video, info.hasVideo { playable = !((try? await asset.loadTracks(withMediaType: .video)) ?? []).isEmpty }
@@ -166,9 +178,10 @@ final class MediaPreview: ObservableObject {
             let player = AVPlayer(url: source)
             player.actionAtItemEnd = .pause
             self.player = player
-            observer = player.addPeriodicTimeObserver(forInterval: CMTime(value: 1, timescale: 60), queue: .main) { [weak self] time in
+            // Weak captures: the player retains this block, so a strong one would keep it (and its audio) alive.
+            observer = player.addPeriodicTimeObserver(forInterval: CMTime(value: 1, timescale: 60), queue: .main) { [weak self, weak player] time in
                 MainActor.assumeIsolated {
-                    guard let self else { return }
+                    guard let self, let player else { return }
                     self.time = time.seconds
                     self.isPlaying = player.rate != 0
                     if let stop = self.stopAt, time.seconds >= stop { player.pause(); self.stopAt = nil }
@@ -428,12 +441,14 @@ struct RectEditor: View {
                 }
                 guard let drag, drag.index < rects.count else { return }
                 var rect: CGRect
+                var anchor: CGPoint?  // the corner that stays put while sizing
                 switch drag.mode {
                 case .move:
                     rect = drag.start.offsetBy(dx: p1.x - p0.x, dy: p1.y - p0.y)
                     rect.origin.x = min(max(0, rect.minX), 1 - rect.width)
                     rect.origin.y = min(max(0, rect.minY), 1 - rect.height)
                 case .create:
+                    anchor = p0
                     rect = CGRect(x: min(p0.x, p1.x), y: min(p0.y, p1.y), width: abs(p1.x - p0.x), height: abs(p1.y - p0.y))
                 case .resize(let corner):
                     let s = drag.start
@@ -443,14 +458,16 @@ struct RectEditor: View {
                     case .bottomLeft: CGPoint(x: s.maxX, y: s.minY)
                     case .bottomRight: CGPoint(x: s.minX, y: s.minY)
                     }
+                    anchor = fixed
                     rect = CGRect(x: min(fixed.x, p1.x), y: min(fixed.y, p1.y), width: abs(p1.x - fixed.x), height: abs(p1.y - fixed.y))
                 }
-                if let aspect, aspect > 0, case .move = drag.mode {} else if let aspect, aspect > 0 {
-                    // Aspect is in pixels; convert to unit space for this image.
+                if let aspect, aspect > 0, let anchor {
+                    // Aspect is in pixels; convert to unit space for this image. Shrinking one side keeps
+                    // the anchored corner where it is, so the box never leaves the image.
                     let unitAspect = CGFloat(aspect) * imageSize.height / imageSize.width
                     if rect.width / max(rect.height, 0.0001) > unitAspect { rect.size.width = rect.height * unitAspect } else { rect.size.height = rect.width / unitAspect }
-                    if rect.maxX > 1 { rect.origin.x = 1 - rect.width }
-                    if rect.maxY > 1 { rect.origin.y = 1 - rect.height }
+                    rect.origin.x = p1.x < anchor.x ? anchor.x - rect.width : anchor.x
+                    rect.origin.y = p1.y < anchor.y ? anchor.y - rect.height : anchor.y
                 }
                 rects[drag.index] = rect.intersection(CGRect(x: 0, y: 0, width: 1, height: 1))
             }.onEnded { _ in

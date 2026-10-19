@@ -35,7 +35,6 @@ enum ProcessRunner {
         _ arguments: [String],
         environment: [String: String]? = nil,
         currentDirectory: URL? = nil,
-        stdin: Data? = nil,
         onStdoutLine: ((String) -> Void)? = nil,
         onStderrLine: ((String) -> Void)? = nil
     ) async throws -> ProcessOutput {
@@ -49,44 +48,39 @@ enum ProcessRunner {
         let outPipe = Pipe(), errPipe = Pipe()
         process.standardOutput = outPipe
         process.standardError = errPipe
-        let inPipe = stdin.map { _ in Pipe() }
-        process.standardInput = inPipe ?? FileHandle.nullDevice
-
+        process.standardInput = FileHandle.nullDevice
         let collector = OutputCollector(onStdoutLine: onStdoutLine, onStderrLine: onStderrLine)
-        outPipe.fileHandleForReading.readabilityHandler = { handle in
-            let data = handle.availableData
-            if !data.isEmpty { collector.appendStdout(data) }
-        }
-        errPipe.fileHandleForReading.readabilityHandler = { handle in
-            let data = handle.availableData
-            if !data.isEmpty { collector.appendStderr(data) }
-        }
 
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<ProcessOutput, Error>) in
-                process.terminationHandler = { finished in
-                    outPipe.fileHandleForReading.readabilityHandler = nil
-                    errPipe.fileHandleForReading.readabilityHandler = nil
-                    collector.appendStdout(outPipe.fileHandleForReading.readDataToEndOfFile())
-                    collector.appendStderr(errPipe.fileHandleForReading.readDataToEndOfFile())
-                    collector.finish()
-                    if Task.isCancelled || collector.cancelled {
-                        continuation.resume(throwing: CancellationError())
-                    } else {
-                        continuation.resume(returning: ProcessOutput(status: finished.terminationStatus, stdout: collector.stdout, stderr: collector.stderrText))
+                // One blocking reader per pipe keeps each stream's chunks in order; the result is
+                // delivered once the process has exited and both pipes reached end of file.
+                let done = DispatchGroup()
+                func drain(_ handle: FileHandle, _ append: @escaping (Data) -> Void) {
+                    done.enter()
+                    DispatchQueue.global(qos: .utility).async {
+                        while case let data = handle.availableData, !data.isEmpty { append(data) }
+                        done.leave()
                     }
                 }
+                done.enter()
+                process.terminationHandler = { _ in done.leave() }
                 do {
                     try process.run()
-                    collector.process = process
-                    if let stdin, let inPipe {
-                        DispatchQueue.global().async {
-                            inPipe.fileHandleForWriting.write(stdin)
-                            try? inPipe.fileHandleForWriting.close()
-                        }
-                    }
                 } catch {
                     continuation.resume(throwing: WheelError("Could not start \(executable.lastPathComponent): \(error.localizedDescription)"))
+                    return
+                }
+                collector.process = process
+                drain(outPipe.fileHandleForReading, collector.appendStdout)
+                drain(errPipe.fileHandleForReading, collector.appendStderr)
+                done.notify(queue: .global(qos: .utility)) {
+                    collector.finish()
+                    if collector.cancelled {
+                        continuation.resume(throwing: CancellationError())
+                    } else {
+                        continuation.resume(returning: ProcessOutput(status: process.terminationStatus, stdout: collector.stdout, stderr: collector.stderrText))
+                    }
                 }
             }
         } onCancel: {

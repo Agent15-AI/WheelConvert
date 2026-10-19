@@ -22,7 +22,6 @@ final class WheelView: NSView {
     private let backdrop = NSVisualEffectView()
     private let ringLayer = CALayer()
     private var petalLayers: [CAShapeLayer] = []
-    private var highlightLayers: [CAGradientLayer] = []
     private var labelLayers: [CATextLayer] = []
     private var iconLayers: [CALayer] = []
     private let hubLayer = CAShapeLayer()
@@ -122,22 +121,30 @@ final class WheelView: NSView {
             path.addEllipse(in: CGRect(x: center.x - innerRadius, y: center.y - innerRadius, width: 2 * innerRadius, height: 2 * innerRadius))
             return path
         }
-        // Clockwise on screen means decreasing standard angle: a0 > a1.
-        let outerStart = a0 - outerInset, outerEnd = a1 + outerInset
-        let innerStart = a1 + innerInset, innerEnd = a0 - innerInset
-        let corner: CGFloat = min(12, (outerRadius - innerRadius) / 3)
+        // Outer arc runs clockwise from a0 to a1, inner arc back. Each of the four corners is cut
+        // back by the same distance along both edges and joined with a curve, so every petal has
+        // identical, symmetric corners.
+        let outerFrom = a0 - outerInset, outerTo = a1 + outerInset
+        let innerFrom = a1 + innerInset, innerTo = a0 - innerInset
         func point(_ r: CGFloat, _ a: CGFloat) -> CGPoint { CGPoint(x: center.x + r * cos(a), y: center.y + r * sin(a)) }
+        func toward(_ from: CGPoint, _ to: CGPoint, _ distance: CGFloat) -> CGPoint {
+            let length = max(hypot(to.x - from.x, to.y - from.y), 0.001)
+            return CGPoint(x: from.x + (to.x - from.x) * distance / length, y: from.y + (to.y - from.y) * distance / length)
+        }
+        let c0 = point(outerRadius, outerFrom), c1 = point(outerRadius, outerTo)
+        let c2 = point(innerRadius, innerFrom), c3 = point(innerRadius, innerTo)
+        let edge = outerRadius - innerRadius
+        let ro = min(11, edge / 3, outerRadius * (outerFrom - outerTo) / 3)
+        let ri = min(7, edge / 4, innerRadius * (innerTo - innerFrom) / 3)
         let path = CGMutablePath()
-        let o0 = point(outerRadius, outerStart), o1 = point(outerRadius, outerEnd)
-        let i0 = point(innerRadius, innerStart), i1 = point(innerRadius, innerEnd)
-        let outerCorner = corner / outerRadius, innerCorner = min(corner * 0.7, 8) / innerRadius
-        path.move(to: point((innerRadius + outerRadius) / 2, innerEnd + 0.0001))
-        path.addArc(tangent1End: point(outerRadius, outerStart), tangent2End: point(outerRadius, outerStart - outerCorner * 2), radius: corner)
-        path.addArc(center: center, radius: outerRadius, startAngle: outerStart - outerCorner, endAngle: outerEnd + outerCorner, clockwise: true)
-        path.addArc(tangent1End: o1, tangent2End: i0, radius: corner)
-        path.addArc(tangent1End: i0, tangent2End: point(innerRadius, innerStart + innerCorner * 2), radius: min(corner * 0.7, 8))
-        path.addArc(center: center, radius: innerRadius, startAngle: innerStart + innerCorner, endAngle: innerEnd - innerCorner, clockwise: false)
-        path.addArc(tangent1End: i1, tangent2End: o0, radius: min(corner * 0.7, 8))
+        path.move(to: toward(c0, c3, ro))
+        path.addQuadCurve(to: point(outerRadius, outerFrom - ro / outerRadius), control: c0)
+        path.addArc(center: center, radius: outerRadius, startAngle: outerFrom - ro / outerRadius, endAngle: outerTo + ro / outerRadius, clockwise: true)
+        path.addQuadCurve(to: toward(c1, c2, ro), control: c1)
+        path.addLine(to: toward(c2, c1, ri))
+        path.addQuadCurve(to: point(innerRadius, innerFrom + ri / innerRadius), control: c2)
+        path.addArc(center: center, radius: innerRadius, startAngle: innerFrom + ri / innerRadius, endAngle: innerTo - ri / innerRadius, clockwise: false)
+        path.addQuadCurve(to: toward(c3, c0, ri), control: c3)
         path.closeSubpath()
         return path
     }
@@ -149,8 +156,8 @@ final class WheelView: NSView {
         CATransaction.setDisableActions(true)
         defer { CATransaction.commit() }
         ringLayer.frame = bounds
-        (petalLayers as [CALayer] + highlightLayers + labelLayers + iconLayers).forEach { $0.removeFromSuperlayer() }
-        petalLayers = []; highlightLayers = []; labelLayers = []; iconLayers = []
+        (petalLayers as [CALayer] + labelLayers + iconLayers).forEach { $0.removeFromSuperlayer() }
+        petalLayers = []; labelLayers = []; iconLayers = []
         let scale = window?.backingScaleFactor ?? 2
 
         for (index, item) in items.enumerated() {
@@ -161,19 +168,6 @@ final class WheelView: NSView {
             petal.lineWidth = 1
             ringLayer.insertSublayer(petal, below: hubLayer)
             petalLayers.append(petal)
-
-            let glow = CAGradientLayer()
-            glow.frame = bounds
-            glow.colors = [Brand.accentTop.cgColor, Brand.accentBottom.cgColor]
-            glow.startPoint = CGPoint(x: 0.5, y: 1)
-            glow.endPoint = CGPoint(x: 0.5, y: 0)
-            let mask = CAShapeLayer()
-            mask.path = path
-            mask.fillRule = .evenOdd
-            glow.mask = mask
-            glow.opacity = 0
-            ringLayer.insertSublayer(glow, below: hubLayer)
-            highlightLayers.append(glow)
 
             let midClock = CGFloat(index) * step
             let midRadius = (innerRadius + outerRadius) / 2 + 2
@@ -262,9 +256,9 @@ final class WheelView: NSView {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         for (index, petal) in petalLayers.enumerated() {
-            petal.fillColor = petalFill.cgColor
-            petal.strokeColor = stroke.cgColor
             let selected = index == highlighted
+            petal.fillColor = (selected ? Brand.accent : petalFill).cgColor
+            petal.strokeColor = (selected ? Brand.accent : stroke).cgColor
             labelLayers[safe: index]?.foregroundColor = (selected ? NSColor.white : labelColor).cgColor
             if let icon = iconLayers[safe: index], let symbol = icon.value(forKey: "symbol") as? String {
                 icon.contents = tintedSymbol(symbol, color: selected ? .white : labelColor)
@@ -295,10 +289,6 @@ final class WheelView: NSView {
     }
 
     private func highlightChanged() {
-        CATransaction.begin()
-        CATransaction.setAnimationDuration(0.12)
-        for (index, glow) in highlightLayers.enumerated() { glow.opacity = index == highlighted ? 1 : 0 }
-        CATransaction.commit()
         applyColors()
         updateHubText()
         if highlighted != nil { feedback.play() }
@@ -306,6 +296,9 @@ final class WheelView: NSView {
             NSAccessibility.post(element: self, notification: .announcementRequested, userInfo: [.announcement: item.title])
         }
     }
+
+    /// Lights a petal without a drag, for snapshots.
+    func debugHighlight(_ index: Int) { highlighted = index }
 
     // MARK: Intro
 

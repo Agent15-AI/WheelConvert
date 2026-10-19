@@ -1,8 +1,19 @@
 import Foundation
+import ImageIO
 
 /// Which output formats each input format converts to, in wheel order.
 enum ConversionMatrix {
-    static let imageTargets: [FileFormat] = [.jpg, .png, .webp, .heic, .tiff, .avif, .bmp, .pdf]
+    /// HEIC and AVIF are offered only where this Mac's ImageIO can encode them.
+    static let imageTargets: [FileFormat] = {
+        let encodable = Set(CGImageDestinationCopyTypeIdentifiers() as? [String] ?? [])
+        return [FileFormat.jpg, .png, .webp, .heic, .tiff, .avif, .bmp, .pdf].filter {
+            switch $0 {
+            case .heic: encodable.contains("public.heic")
+            case .avif: encodable.contains("public.avif")
+            default: true
+            }
+        }
+    }()
     static let videoTargets: [FileFormat] = [.mp4, .mov, .mkv, .webm, .avi, .wmv, .gif, .mp3]
     static let audioTargets: [FileFormat] = [.mp3, .m4a, .wav, .flac, .ogg, .opus, .aiff]
     static let documentTargets: [FileFormat] = [.pdf, .docx, .pages, .md, .txt, .epub, .html]

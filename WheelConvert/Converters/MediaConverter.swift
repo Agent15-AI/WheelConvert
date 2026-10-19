@@ -10,7 +10,8 @@ enum MediaConverter {
         guard info.duration > 0 || target == .gif || input == .gif else {
             throw WheelError("This file has no playable duration.")
         }
-        var args = ["-i", source.path]
+        // AVI often lacks presentation timestamps, which stream copies into MP4/MOV/MKV need.
+        var args = input == .avi ? ["-fflags", "+genpts", "-i", source.path] : ["-i", source.path]
         switch target.category {
         case .audio:
             guard info.hasAudio else { throw WheelError("This file has no audio track.") }

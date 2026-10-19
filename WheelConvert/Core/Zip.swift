@@ -52,9 +52,10 @@ struct ZipArchive {
         guard !entry.isEncrypted else { throw WheelError("Encrypted archive entries cannot be opened.") }
         guard entry.size <= Self.expansionLimit else { throw WheelError("The archive expands beyond the safety limit.") }
         let base = entry.localHeaderOffset
-        guard base + 30 <= data.count, data.u32(base) == 0x04034b50 else { throw WheelError("The archive is damaged.") }
+        // Every bound is checked against the file size first, so crafted sizes can't overflow.
+        guard base >= 0, base <= data.count - 30, data.u32(base) == 0x04034b50 else { throw WheelError("The archive is damaged.") }
         let start = base + 30 + Int(data.u16(base + 26)) + Int(data.u16(base + 28))
-        guard start + entry.compressedSize <= data.count else { throw WheelError("The archive is damaged.") }
+        guard entry.compressedSize >= 0, entry.compressedSize <= data.count, start <= data.count - entry.compressedSize else { throw WheelError("The archive is damaged.") }
         let raw = data.subdata(in: start..<(start + entry.compressedSize))
         let output: Data
         switch entry.method {
@@ -80,17 +81,17 @@ struct ZipArchive {
         var offset = Int(data.u32(eocd + 16))
         // ZIP64: the locator sits just before the classic record.
         if (count == 0xFFFF || offset == 0xFFFF_FFFF), eocd >= 20, data.u32(eocd - 20) == 0x07064b50 {
-            let record = Int(data.u64(eocd - 12))
-            if record + 56 <= data.count, data.u32(record) == 0x06064b50 {
-                count = Int(data.u64(record + 32))
-                offset = Int(data.u64(record + 48))
+            let record = Int(clamping: data.u64(eocd - 12))
+            if record <= data.count - 56, data.u32(record) == 0x06064b50 {
+                count = Int(clamping: data.u64(record + 32))
+                offset = Int(clamping: data.u64(record + 48))
             }
         }
         guard count < 200_000 else { throw WheelError("The archive has too many entries.") }
         var entries: [Entry] = []
         var p = offset
         for _ in 0..<count {
-            guard p + 46 <= data.count, data.u32(p) == 0x02014b50 else { throw WheelError("The ZIP container is damaged or unsupported.") }
+            guard p >= 0, p <= data.count - 46, data.u32(p) == 0x02014b50 else { throw WheelError("The ZIP container is damaged or unsupported.") }
             let flags = data.u16(p + 8)
             let method = data.u16(p + 10)
             let crc = data.u32(p + 16)
@@ -108,9 +109,9 @@ struct ZipArchive {
                 let id = data.u16(e), length = Int(data.u16(e + 2))
                 if id == 0x0001 {
                     var q = e + 4
-                    if size == 0xFFFF_FFFF, q + 8 <= extraEnd { size = Int(data.u64(q)); q += 8 }
-                    if compressed == 0xFFFF_FFFF, q + 8 <= extraEnd { compressed = Int(data.u64(q)); q += 8 }
-                    if local == 0xFFFF_FFFF, q + 8 <= extraEnd { local = Int(data.u64(q)) }
+                    if size == 0xFFFF_FFFF, q + 8 <= extraEnd { size = Int(clamping: data.u64(q)); q += 8 }
+                    if compressed == 0xFFFF_FFFF, q + 8 <= extraEnd { compressed = Int(clamping: data.u64(q)); q += 8 }
+                    if local == 0xFFFF_FFFF, q + 8 <= extraEnd { local = Int(clamping: data.u64(q)) }
                 }
                 e += 4 + length
             }
@@ -119,8 +120,10 @@ struct ZipArchive {
             p += 46 + nameLength + extraLength + commentLength
         }
         var total = 0
-        for entry in entries { total += entry.size }
-        guard total <= expansionLimit else { throw WheelError("The archive expands beyond the safety limit.") }
+        for entry in entries {
+            guard entry.size <= expansionLimit - total else { throw WheelError("The archive expands beyond the safety limit.") }
+            total += entry.size
+        }
         return entries
     }
 

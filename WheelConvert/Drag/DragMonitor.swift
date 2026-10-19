@@ -13,34 +13,32 @@ enum WheelMode: String, CaseIterable, Codable, Identifiable {
     }
 }
 
-/// Watches system-wide file drags without any special permissions.
+/// The drag/shortcut state machine, separated from the polling so it can be tested.
 ///
-/// macOS doesn't announce drags to other apps, so this polls cheap global state: the left mouse
-/// button, the shared drag pasteboard's change count, and the modifier keys. A drag has begun when
-/// the drag pasteboard changes while the button is held. While a drag carries files, pressing a
-/// configured modifier combination selects a wheel; the choice latches until the button is
-/// released or Escape is pressed, so the keys can be let go after tapping them.
-final class DragMonitor {
-    /// Called on the main thread with the latched mode, the dragged files, and the pointer location.
-    var onShowWheel: ((WheelMode, [URL]) -> Void)?
-    /// Called when the wheel should go away (drag ended outside it, Escape, or mode cleared).
-    var onDismissWheel: (() -> Void)?
-    /// Asks whether the drag is currently over the wheel (then it is never dismissed).
-    var isDragInsideWheel: (() -> Bool)?
-    var isWheelVisible: (() -> Bool)?
+/// A drag has begun when the shared drag pasteboard changes while the button is held. While a drag
+/// carries files, pressing a configured modifier combination selects a wheel; the choice latches
+/// until the button is released or Escape is pressed, so the keys can be let go after tapping them.
+struct DragTracker {
+    struct Input {
+        var buttonDown: Bool
+        var modifiers: NSEvent.ModifierFlags
+        var escapeDown: Bool
+        var changeCount: Int
+    }
 
-    private let dragPasteboard = NSPasteboard(name: .drag)
-    private var timer: DispatchSourceTimer?
-    private var isPollingActively = false
+    enum Effect: Equatable {
+        case show(WheelMode, [URL])
+        case dismiss
+    }
 
-    // Shortcut state.
-    private var latchedMode: WheelMode?
+    /// After the shortcut stops applying, the wheel lingers this long so a drop can still land.
+    var dismissGrace: TimeInterval = 0.35
+
+    private(set) var latchedMode: WheelMode?
     private var lastModifiers: NSEvent.ModifierFlags = []
     private var wasButtonDown = false
     private var wasEscapeDown = false
-
-    // Drag detection.
-    private var lastChangeCount = 0
+    private var lastChangeCount: Int?
     private var changeCountAtMouseDown: Int?
     private var activeDragChangeCount: Int?
     private var lastValidTrigger: TimeInterval?
@@ -49,13 +47,83 @@ final class DragMonitor {
     private var cachedFiles: [URL] = []
     private var cachedFilesChangeCount: Int?
 
-    /// After the shortcut stops applying, the wheel lingers this long so a drop can still land.
-    private let dismissGrace: TimeInterval = 0.35
+    /// - Parameters:
+    ///   - files: Reads the dragged files; called once per pasteboard change.
+    ///   - mode: The wheel a modifier combination opens.
+    mutating func update(_ input: Input, now: TimeInterval, wheelVisible: Bool, dragInsideWheel: Bool,
+                         files readFiles: () -> [URL], mode: (NSEvent.ModifierFlags) -> WheelMode?) -> Effect? {
+        // Shortcut latch.
+        if input.buttonDown && !input.escapeDown {
+            let newlyPressed = !input.modifiers.subtracting(lastModifiers).isEmpty
+            if !wasButtonDown || newlyPressed, let chosen = mode(input.modifiers) { latchedMode = chosen }
+        } else {
+            latchedMode = nil
+        }
+        lastModifiers = input.modifiers
+
+        // Drag detection.
+        if input.buttonDown {
+            if !wasButtonDown {
+                changeCountAtMouseDown = lastChangeCount ?? input.changeCount
+                activeDragChangeCount = nil
+            }
+            if let before = changeCountAtMouseDown, input.changeCount != before { activeDragChangeCount = input.changeCount }
+        }
+        let dragActive = activeDragChangeCount != nil && activeDragChangeCount == input.changeCount
+        if dragActive && cachedFilesChangeCount != input.changeCount {
+            cachedFiles = readFiles()
+            cachedFilesChangeCount = input.changeCount
+        }
+        let files = dragActive ? cachedFiles : []
+
+        var effect: Effect?
+        if input.escapeDown && !wasEscapeDown {
+            lastValidTrigger = nil
+            if wheelVisible || shownMode != nil { effect = .dismiss }
+            shownMode = nil
+            shownChangeCount = nil
+        } else if let latched = latchedMode, input.buttonDown, !files.isEmpty {
+            lastValidTrigger = now
+            if shownMode != latched || shownChangeCount != input.changeCount || !wheelVisible {
+                shownMode = latched
+                shownChangeCount = input.changeCount
+                effect = .show(latched, files)
+            }
+        } else if wheelVisible, !dragInsideWheel {
+            if lastValidTrigger.map({ now - $0 >= dismissGrace }) ?? true {
+                shownMode = nil
+                shownChangeCount = nil
+                effect = .dismiss
+            }
+        }
+
+        if !input.buttonDown {
+            changeCountAtMouseDown = nil
+            activeDragChangeCount = nil
+        }
+        wasEscapeDown = input.escapeDown
+        wasButtonDown = input.buttonDown
+        lastChangeCount = input.changeCount
+        return effect
+    }
+}
+
+/// Watches system-wide file drags without any special permissions by polling cheap global state:
+/// the left mouse button, the drag pasteboard's change count, and the modifier keys.
+final class DragMonitor {
+    var onShowWheel: ((WheelMode, [URL]) -> Void)?
+    var onDismissWheel: (() -> Void)?
+    var isDragInsideWheel: (() -> Bool)?
+    var isWheelVisible: (() -> Bool)?
+
+    private let dragPasteboard = NSPasteboard(name: .drag)
+    private var timer: DispatchSourceTimer?
+    private var isPollingActively = false
+    private var tracker = DragTracker()
 
     static let relevantModifiers: NSEvent.ModifierFlags = [.shift, .control, .option, .command]
 
     func start() {
-        lastChangeCount = dragPasteboard.changeCount
         let timer = DispatchSource.makeTimerSource(queue: .main)
         timer.setEventHandler { [weak self] in self?.tick() }
         self.timer = timer
@@ -68,6 +136,7 @@ final class DragMonitor {
         timer = nil
     }
 
+    /// 60 Hz while a button is held or the wheel is up; 10 Hz otherwise.
     private func schedule(active: Bool, force: Bool = false) {
         guard force || active != isPollingActively, let timer else { return }
         isPollingActively = active
@@ -76,76 +145,21 @@ final class DragMonitor {
     }
 
     private func tick() {
-        let modifiers = Self.currentModifiers()
-        let buttonDown = CGEventSource.buttonState(.combinedSessionState, button: .left) || (NSEvent.pressedMouseButtons & 1) != 0
-        let escapeDown = CGEventSource.keyState(.combinedSessionState, key: 0x35)
-        updateShortcut(modifiers: modifiers, buttonDown: buttonDown, escapeDown: escapeDown)
-
-        let changeCount = dragPasteboard.changeCount
-        if buttonDown {
-            if !wasButtonDown {
-                // The button just went down: any pasteboard change from here on is a new drag.
-                changeCountAtMouseDown = lastChangeCount
-                activeDragChangeCount = nil
-            }
-            if let before = changeCountAtMouseDown, changeCount != before {
-                activeDragChangeCount = changeCount
-            }
+        let input = DragTracker.Input(
+            buttonDown: CGEventSource.buttonState(.combinedSessionState, button: .left) || (NSEvent.pressedMouseButtons & 1) != 0,
+            modifiers: Self.currentModifiers(),
+            escapeDown: CGEventSource.keyState(.combinedSessionState, key: 0x35),
+            changeCount: dragPasteboard.changeCount)
+        let visible = isWheelVisible?() == true
+        let effect = tracker.update(input, now: ProcessInfo.processInfo.systemUptime, wheelVisible: visible, dragInsideWheel: isDragInsideWheel?() == true,
+                                    files: { Self.fileURLs(on: dragPasteboard) }, mode: { AppSettings.shared.mode(for: $0) })
+        switch effect {
+        case .show(let mode, let files): onShowWheel?(mode, files)
+        case .dismiss: onDismissWheel?()
+        case nil: break
         }
-        let dragActive = activeDragChangeCount != nil && activeDragChangeCount == changeCount
-        if dragActive && cachedFilesChangeCount != changeCount {
-            cachedFiles = Self.fileURLs(on: dragPasteboard)
-            cachedFilesChangeCount = changeCount
-        }
-        let files = dragActive ? cachedFiles : []
-        let now = ProcessInfo.processInfo.systemUptime
-
-        if escapeDown && !wasEscapeDown {
-            lastValidTrigger = nil
-            dismiss()
-        } else if let mode = latchedMode, buttonDown, !files.isEmpty {
-            lastValidTrigger = now
-            if shownMode != mode || shownChangeCount != changeCount || isWheelVisible?() != true {
-                shownMode = mode
-                shownChangeCount = changeCount
-                onShowWheel?(mode, files)
-            }
-        } else if isWheelVisible?() == true, isDragInsideWheel?() != true {
-            let expired = lastValidTrigger.map { now - $0 >= dismissGrace } ?? true
-            if expired { dismiss() }
-        }
-
-        if !buttonDown {
-            changeCountAtMouseDown = nil
-            activeDragChangeCount = nil
-        }
-        wasEscapeDown = escapeDown
-        wasButtonDown = buttonDown
-        lastChangeCount = changeCount
-        schedule(active: buttonDown || isWheelVisible?() == true)
+        schedule(active: input.buttonDown || isWheelVisible?() == true)
     }
-
-    private func dismiss() {
-        shownMode = nil
-        shownChangeCount = nil
-        onDismissWheel?()
-    }
-
-    /// Latches a wheel when a configured combination is newly pressed with the button held.
-    private func updateShortcut(modifiers: NSEvent.ModifierFlags, buttonDown: Bool, escapeDown: Bool) {
-        defer { wasShortcutButtonDown = buttonDown }
-        guard buttonDown, !escapeDown else {
-            latchedMode = nil
-            lastModifiers = modifiers
-            return
-        }
-        let newlyPressed = !modifiers.subtracting(lastModifiers).isEmpty
-        if !wasShortcutButtonDown || newlyPressed {
-            if let mode = AppSettings.shared.mode(for: modifiers) { latchedMode = mode }
-        }
-        lastModifiers = modifiers
-    }
-    private var wasShortcutButtonDown = false
 
     static func currentModifiers() -> NSEvent.ModifierFlags {
         let raw = UInt(CGEventSource.flagsState(.combinedSessionState).rawValue) | NSEvent.modifierFlags.rawValue
