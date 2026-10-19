@@ -10,7 +10,8 @@ tool, or run a file action. Everything runs locally.
 
 Presets are saved recipes, such as "Instagram 1080 px JPG" or "Email-size MP4 (under 25 MB)": a target format
 with its options, or a tool with its settings. Matching presets appear as extra petals on the Convert wheel.
-Manage them in Settings → Presets.
+Manage them in Settings → Presets. Settings → Watch Folders runs a preset on every new file dropped into a
+chosen folder, once the file has finished copying; WheelConvert's own results are never processed again.
 
 Without dragging, right-click files in Finder and choose **Convert with WheelConvert**, **WheelConvert Tools**
 or **WheelConvert File Actions**; the wheel opens at the pointer and a click picks a petal (Escape or a click
@@ -86,7 +87,8 @@ The app binary also has developer modes used by these scripts:
 `--convert <file> <format> [--options <json>]`, `--tool <tool> <files…> [--options <json>]`,
 `--outputs <file>`, `--snapshot <view> <out.png> [files…]` for offscreen UI renders, and
 `--preview-check <file> [seconds]`, which times how quickly a tool preview starts playing (and plays again after a seek),
-`--batch <format> <files…>` (the parallel job queue) and `--preset <name> <files…>`.
+`--batch <format> <files…>` (the parallel job queue), `--preset <name> <files…>` and
+`--watch <folder> <preset> <seconds>`.
 
 `scripts/e2e/DragDriver.swift` performs a real drag with a modifier tap and drops on a petal. It moves the
 mouse and presses keys, so run it only while you're not using the Mac.

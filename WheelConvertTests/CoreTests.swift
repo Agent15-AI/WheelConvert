@@ -226,6 +226,18 @@ final class CoreTests: XCTestCase {
         return preset
     }
 
+    func testWatchFoldersSkipHiddenPartialAndOwnFiles() {
+        XCTAssertTrue(FolderWatcher.isCandidate(URL(fileURLWithPath: "/x/photo.jpg")))
+        XCTAssertFalse(FolderWatcher.isCandidate(URL(fileURLWithPath: "/x/.photo.jpg")))
+        XCTAssertFalse(FolderWatcher.isCandidate(URL(fileURLWithPath: "/x/.wheelconvert-1234-photo.jpg")))
+        XCTAssertFalse(FolderWatcher.isCandidate(URL(fileURLWithPath: "/x/movie.mp4.crdownload")))
+        XCTAssertFalse(FolderWatcher.isCandidate(URL(fileURLWithPath: "/x/movie.mp4.part")))
+        let result = URL(fileURLWithPath: "/x/photo 2.jpg")
+        XCTAssertTrue(FolderWatcher.isCandidate(result))
+        OutputLedger.record(result)
+        XCTAssertFalse(FolderWatcher.isCandidate(result))
+    }
+
     func testModeMatchingIsExact() {
         let settings = AppSettings(defaults: UserDefaults(suiteName: UUID().uuidString)!)
         XCTAssertEqual(settings.mode(for: [.shift]), .convert)

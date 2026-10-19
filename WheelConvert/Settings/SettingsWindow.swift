@@ -30,6 +30,7 @@ struct SettingsView: View {
             ConversionSettings().tabItem { Label("Conversion", systemImage: "arrow.triangle.2.circlepath") }
             CompressionSettings().tabItem { Label("Compression", systemImage: "arrow.down.right.and.arrow.up.left") }
             PresetSettings().tabItem { Label("Presets", systemImage: "wand.and.stars") }
+            WatchFolderSettings().tabItem { Label("Watch Folders", systemImage: "eye") }
             FormatCompatibility().tabItem { Label("Formats", systemImage: "tablecells") }
             AboutSettings().tabItem { Label("About", systemImage: "info.circle") }
         }
@@ -465,6 +466,63 @@ struct PresetEditor: View {
         default:
             Text("Removes camera, location, author and software details. Orientation and color profile are kept.")
                 .font(.callout).foregroundStyle(.secondary)
+        }
+    }
+}
+
+// MARK: - Watch folders
+
+struct WatchFolderSettings: View {
+    @ObservedObject private var settings = AppSettings.shared
+
+    var body: some View {
+        Form {
+            Section {
+                if settings.watchFolders.isEmpty {
+                    Text("No folders yet.").foregroundStyle(.secondary)
+                }
+                ForEach($settings.watchFolders) { $folder in
+                    HStack(spacing: 10) {
+                        Toggle("Watch \(FileManager.default.displayName(atPath: folder.path))", isOn: $folder.enabled).labelsHidden()
+                        Image(nsImage: NSWorkspace.shared.icon(forFile: folder.path)).resizable().frame(width: 20, height: 20)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(FileManager.default.displayName(atPath: folder.path)).lineLimit(1)
+                            Text((folder.path as NSString).abbreviatingWithTildeInPath).font(.caption).foregroundStyle(.secondary)
+                                .lineLimit(1).truncationMode(.middle)
+                        }
+                        Spacer()
+                        Picker("Preset", selection: $folder.presetID) {
+                            if !settings.presets.contains(where: { $0.id == folder.presetID }) { Text("Choose a Preset").tag(folder.presetID) }
+                            ForEach(settings.presets) { Text($0.name).tag($0.id) }
+                        }
+                        .labelsHidden().frame(width: 220)
+                        Button { settings.watchFolders.removeAll { $0.id == folder.id } } label: { Image(systemName: "minus.circle") }
+                            .buttonStyle(.borderless).help("Stop watching this folder")
+                            .accessibilityLabel("Stop watching \(FileManager.default.displayName(atPath: folder.path))")
+                    }
+                }
+                Button("Add Folder…", action: addFolder).disabled(settings.presets.isEmpty)
+            } header: {
+                Text("Watch folders")
+            } footer: {
+                Text("New files added to these folders run through the chosen preset while WheelConvert is open. Files still being copied or downloaded wait until they’re complete, and WheelConvert’s own results are never processed again.")
+                    .font(.callout).foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+    }
+
+    private func addFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = true
+        panel.allowsMultipleSelection = true
+        panel.prompt = "Watch"
+        panel.message = "Choose folders to watch for new files."
+        guard panel.runModal() == .OK, let preset = settings.presets.first else { return }
+        for url in panel.urls where !settings.watchFolders.contains(where: { $0.path == url.path }) {
+            settings.watchFolders.append(WatchFolder(path: url.path, presetID: preset.id))
         }
     }
 }

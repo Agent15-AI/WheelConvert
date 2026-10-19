@@ -25,6 +25,14 @@ enum SaveDestination: String, CaseIterable, Codable, Identifiable {
     }
 }
 
+/// A folder whose new files run through a preset (Settings → Watch Folders).
+struct WatchFolder: Codable, Identifiable, Equatable {
+    var id = UUID()
+    var path: String
+    var presetID: UUID
+    var enabled = true
+}
+
 /// App-wide preferences, persisted in UserDefaults.
 final class AppSettings: ObservableObject {
     static let shared = AppSettings()
@@ -61,6 +69,9 @@ final class AppSettings: ObservableObject {
         } else {
             presets = Preset.defaults
         }
+        if let data = defaults.data(forKey: Keys.watchFolders), let stored = try? JSONDecoder().decode([WatchFolder].self, from: data) {
+            watchFolders = stored
+        }
         if let data = defaults.data(forKey: Keys.imageCompression), let value = try? JSONDecoder().decode(ImageCompressionDefaults.self, from: data, defaults: ImageCompressionDefaults()) {
             imageCompression = value
         }
@@ -85,6 +96,7 @@ final class AppSettings: ObservableObject {
         static let imageCompression = "imageCompressionDefaults"
         static let videoCompression = "videoCompressionDefaults"
         static let presets = "presets"
+        static let watchFolders = "watchFolders"
     }
 
     @Published var conversionModifiers: NSEvent.ModifierFlags { didSet { defaults.set(Int(conversionModifiers.rawValue), forKey: Keys.convert) } }
@@ -107,6 +119,9 @@ final class AppSettings: ObservableObject {
     }
     @Published var presets: [Preset] = [] {
         didSet { defaults.set(try? JSONEncoder().encode(presets), forKey: Keys.presets) }
+    }
+    @Published var watchFolders: [WatchFolder] = [] {
+        didSet { defaults.set(try? JSONEncoder().encode(watchFolders), forKey: Keys.watchFolders) }
     }
 
     func modifiers(for mode: WheelMode) -> NSEvent.ModifierFlags {

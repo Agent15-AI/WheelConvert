@@ -40,6 +40,21 @@ enum CommandLineMode {
                     job.failures.forEach { print("FAIL:\($0.name)\t\($0.message)") }
                     exit(job.failures.isEmpty ? 0 : 1)
                 }
+                if let i = args.firstIndex(of: "--watch"), i + 3 < args.count, let seconds = Double(args[i + 3]) {
+                    guard let preset = Preset.named(args[i + 2], in: AppSettings.shared.presets) else { throw WheelError("Unknown preset \(args[i + 2])") }
+                    var jobs: [JobState] = []
+                    FolderWatcher.shared.onJob = { jobs.append($0) }
+                    FolderWatcher.shared.watch([.init(folder: URL(fileURLWithPath: args[i + 1], isDirectory: true), preset: preset)])
+                    FileHandle.standardOutput.write(Data("WATCHING\n".utf8))
+                    try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+                    FolderWatcher.shared.watch([])
+                    for job in jobs {
+                        await job.task?.value
+                        job.outputs.forEach { print("OUT:\($0.path)") }
+                        job.failures.forEach { print("FAIL:\($0.name)\t\($0.message)") }
+                    }
+                    exit(0)
+                }
                 if let i = args.firstIndex(of: "--outputs"), i + 1 < args.count {
                     let url = URL(fileURLWithPath: args[i + 1])
                     let formats = FileFormat.detect(url).map { ConversionMatrix.outputs(for: $0) } ?? []

@@ -42,7 +42,10 @@ enum OutputNaming {
         var taken: Set<String> = []
         while true {
             let target = unique(in: directory, base: base, extension: ext, reserved: taken)
-            if renamex_np(item.path, target.path, UInt32(RENAME_EXCL)) == 0 { return target }
+            if renamex_np(item.path, target.path, UInt32(RENAME_EXCL)) == 0 {
+                OutputLedger.record(target)
+                return target
+            }
             switch errno {
             case EEXIST:
                 taken.insert(target.path)
@@ -50,6 +53,7 @@ enum OutputNaming {
                 // Volumes without exclusive rename (some network shares): check, then move.
                 do {
                     try FileManager.default.moveItem(at: item, to: target)
+                    OutputLedger.record(target)
                     return target
                 } catch CocoaError.fileWriteFileExists {
                     taken.insert(target.path)

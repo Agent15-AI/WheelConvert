@@ -215,5 +215,30 @@ for name, preset, fixture, ext, check in PRESET_CASES:
     print(f"{'OK  ' if not err else 'FAIL'} {name:28} {time.time() - t:5.1f}s {os.path.basename(outs[0]) if outs else ''} {err or ''}")
     if err: failures.append((name, err))
 
+# Watch folder: new files run through a preset once complete; hidden, partial and own results are skipped.
+if not only or any("watch" in o for o in only):
+    folder = os.path.join(WORK, "watch"); os.makedirs(folder)
+    t = time.time()
+    proc = subprocess.Popen([APP, "--watch", folder, "Instagram 1080 px JPG", "16"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    proc.stdout.readline()  # WATCHING
+    photo = big_fixture("big.jpg")
+    shutil.copy2(photo, os.path.join(folder, "a.jpg"))
+    shutil.copy2(photo, os.path.join(folder, ".hidden.jpg"))
+    shutil.copy2(photo, os.path.join(folder, "c.jpg.crdownload"))
+    with open(os.path.join(folder, "notes.txt"), "w") as f: f.write("not a photo")
+    data = open(photo, "rb").read()
+    with open(os.path.join(folder, "slow.jpg"), "wb") as f:  # written in two halves, 2.5 s apart
+        f.write(data[: len(data) // 2]); f.flush(); time.sleep(2.5); f.write(data[len(data) // 2:])
+    out, errs = proc.communicate(timeout=120)
+    outs = sorted(os.path.basename(l[4:]) for l in out.splitlines() if l.startswith("OUT:"))
+    fails = [l for l in out.splitlines() if l.startswith("FAIL:")]
+    err = None
+    if fails: err = f"a half-written file was processed: {fails}"
+    elif outs != ["a 2.jpg", "slow 2.jpg"]: err = f"outputs {outs} {errs.strip()[-200:]}"
+    elif any(width(os.path.join(folder, o)) != 1080 for o in outs): err = "an output isn't 1080 px wide"
+    elif sorted(os.listdir(folder)) != sorted([".hidden.jpg", "a.jpg", "a 2.jpg", "c.jpg.crdownload", "notes.txt", "slow.jpg", "slow 2.jpg"]): err = f"files {sorted(os.listdir(folder))}"
+    print(f"{'OK  ' if not err else 'FAIL'} {'watch folder':28} {time.time() - t:5.1f}s {err or ''}")
+    if err: failures.append(("watch folder", err))
+
 print(f"\n{len(failures)} failures")
 for f in failures: print("  ", f)

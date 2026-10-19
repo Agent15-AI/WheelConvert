@@ -1,9 +1,11 @@
 import AppKit
+import Combine
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let monitor = DragMonitor()
     private var wheel: WheelController!
     private var menuBar: MenuBarController!
+    private var settingsObserver: AnyCancellable?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         Self.removeStaleStaging()
@@ -19,6 +21,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         monitor.isWheelVisible = { [weak self] in self?.wheel.isOpenForDrag ?? false }
         monitor.start()
         NSApp.servicesProvider = self
+        // @Published fires before the value changes, so the watcher reads Settings on the next turn.
+        settingsObserver = AppSettings.shared.$watchFolders.combineLatest(AppSettings.shared.$presets)
+            .receive(on: DispatchQueue.main)
+            .sink { _ in MainActor.assumeIsolated { FolderWatcher.shared.followSettings() } }
         if !AppSettings.shared.hasCompletedWelcome {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { WelcomeWindowController.shared.show() }
         }
