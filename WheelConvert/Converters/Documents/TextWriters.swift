@@ -2,6 +2,10 @@ import Foundation
 
 /// GitHub-flavored Markdown output. Images are embedded as data URLs so the file stands alone.
 struct MarkdownWriter {
+    /// Folder, next to the .md file, that the image links point into.
+    var imageFolder = "images"
+    /// The document's images, named as the text links them; the caller saves them in `imageFolder`.
+    private(set) var images: [(name: String, data: Data)] = []
     private var notes: [String] = []
 
     mutating func write(_ doc: StructuredDocument) -> String {
@@ -54,7 +58,12 @@ struct MarkdownWriter {
                 out += self.table(table) + "\n"
             case .image(let image):
                 let alt = (image.alt ?? "").replacingOccurrences(of: "]", with: "\\]")
-                out += "![\(alt)](data:\(image.mime);base64,\(image.data.base64EncodedString()))\n\n"
+                let name = String(format: "image-%03d.", images.count + 1) + ImageSniffer.fileExtension(image.data)
+                images.append((name, image.data))
+                // Spaces and parentheses would end a Markdown link early.
+                var allowed = CharacterSet.urlPathAllowed
+                allowed.remove(charactersIn: "()")
+                out += "![\(alt)](\((imageFolder + "/" + name).addingPercentEncoding(withAllowedCharacters: allowed) ?? name))\n\n"
             case .rule:
                 out += "---\n\n"
             case .pageBreak:

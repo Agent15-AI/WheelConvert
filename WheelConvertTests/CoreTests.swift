@@ -266,6 +266,18 @@ final class CoreTests: XCTestCase {
         XCTAssertTrue(dithered.count < plain.count * 3, "dithered \(dithered.count) vs plain \(plain.count)")
     }
 
+    func testMarkdownLinksImagesInAFolder() {
+        var doc = StructuredDocument()
+        let png = Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])
+        doc.blocks = [.paragraph(.init(runs: [.init("Hi")])), .image(.init(data: png, alt: "A (chart)")), .image(.init(data: Data([0xFF, 0xD8, 0xFF, 0xE0])))]
+        var writer = MarkdownWriter(imageFolder: "Report (final) images")
+        let text = writer.write(doc)
+        XCTAssertTrue(text.contains("![A (chart)](Report%20%28final%29%20images/image-001.png)"), text)
+        XCTAssertTrue(text.contains("](Report%20%28final%29%20images/image-002.jpg)"), text)
+        XCTAssertFalse(text.contains("data:"))
+        XCTAssertEqual(writer.images.map(\.name), ["image-001.png", "image-002.jpg"])
+    }
+
     func testModeMatchingIsExact() {
         let settings = AppSettings(defaults: UserDefaults(suiteName: UUID().uuidString)!)
         XCTAssertEqual(settings.mode(for: [.shift]), .convert)

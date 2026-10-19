@@ -34,7 +34,7 @@ enum Converter {
             case .pdf:
                 outputs = try await PDFConverter.convert(source, to: target, options: options, staging: staging.url, base: base, progress: progress)
             case .documents:
-                try await DocumentConverter.convert(source, from: input, to: target, options: options, destination: single, progress: progress)
+                outputs = try await DocumentConverter.convert(source, from: input, to: target, options: options, destination: single, progress: progress)
             case .slides:
                 outputs = try await OfficeHelper.slides(source, to: target, staging: staging.url, base: base, progress: progress)
             case .spreadsheets:
@@ -153,7 +153,7 @@ enum PDFConverter {
             } else {
                 var doc = try PDFStructureReader.read(document) { progress($0 * 0.85) }
                 if doc.title == nil { doc.title = base }
-                try await DocumentConverter.write(doc, as: target, destination: single, progress: progress)
+                return try await DocumentConverter.write(doc, as: target, destination: single, progress: progress)
             }
             return [single]
         default:
@@ -261,18 +261,21 @@ enum DocumentConverter {
         return doc
     }
 
+    /// - Returns: What was saved: the file, plus an images folder for Markdown.
     static func convert(_ source: URL, from input: FileFormat, to target: FileFormat, options: ConversionOptions,
-                        destination: URL, progress: @escaping (Double) -> Void) async throws {
+                        destination: URL, progress: @escaping (Double) -> Void) async throws -> [URL] {
         if input == .docx && target == .pdf {
             try await DocumentPrinter.printDOCX(source, to: destination, progress: progress)
-            return
+            return [destination]
         }
         let doc = try read(source, as: input)
         progress(0.4)
-        try await write(doc, as: target, destination: destination, progress: progress)
+        return try await write(doc, as: target, destination: destination, progress: progress)
     }
 
-    static func write(_ doc: StructuredDocument, as target: FileFormat, destination: URL, progress: @escaping (Double) -> Void) async throws {
+    /// - Returns: What was saved: `destination`, plus for Markdown an "<name> images" folder beside it.
+    static func write(_ doc: StructuredDocument, as target: FileFormat, destination: URL, progress: @escaping (Double) -> Void) async throws -> [URL] {
+        var outputs = [destination]
         switch target {
         case .pdf:
             var writer = HTMLWriter()
@@ -284,8 +287,15 @@ enum DocumentConverter {
         case .pages:
             try PagesBridge.write(doc).write(to: destination)
         case .md:
-            var writer = MarkdownWriter()
+            let folderName = OutputNaming.baseName(of: destination) + " images"
+            var writer = MarkdownWriter(imageFolder: folderName)
             try writer.write(doc).write(to: destination, atomically: false, encoding: .utf8)
+            if !writer.images.isEmpty {
+                let folder = destination.deletingLastPathComponent().appendingPathComponent(folderName, isDirectory: true)
+                try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: false)
+                for image in writer.images { try image.data.write(to: folder.appendingPathComponent(image.name)) }
+                outputs.append(folder)
+            }
         case .txt:
             try PlainTextWriter.write(doc).write(to: destination, atomically: false, encoding: .utf8)
         case .epub:
@@ -297,5 +307,6 @@ enum DocumentConverter {
             throw WheelError("Conversion to \(target.title) is unavailable.")
         }
         progress(1)
+        return outputs
     }
 }

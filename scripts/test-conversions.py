@@ -29,7 +29,22 @@ def pdf_error(path):
         if len(nums) != 4 or nums[2] - nums[0] < 1 or nums[3] - nums[1] < 1: return f"bad MediaBox {box.decode()}"
     return None
 
+def markdown_error(folder):
+    """A Markdown result folder: one .md whose image links all point at files in its images folder."""
+    import urllib.parse
+    docs = [f for f in os.listdir(folder) if f.endswith(".md")]
+    if len(docs) != 1: return f"expected one .md, found {docs}"
+    text = open(os.path.join(folder, docs[0]), encoding="utf-8").read()
+    if "data:image" in text: return "embedded data URL"
+    links = re.findall(r"!\[[^\]]*\]\(([^)]+)\)", text)
+    if not links: return "no image links"
+    for link in links:
+        if not os.path.isfile(os.path.join(folder, urllib.parse.unquote(link))): return f"broken image link {link}"
+        if validate(os.path.join(folder, urllib.parse.unquote(link)), os.path.splitext(link)[1][1:].replace("jpeg", "jpg")): return f"bad image {link}"
+    return None
+
 def validate(path, fmt):
+    if fmt == "md" and os.path.isdir(path): return markdown_error(path)
     if os.path.isdir(path):
         files = [os.path.join(path, f) for f in sorted(os.listdir(path))]
         if not files: return "empty folder"
