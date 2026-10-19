@@ -51,12 +51,15 @@ struct EditPhotoView: View {
     let close: () -> Void
     let apply: (ToolOptions.Adjustments) -> Void
     @StateObject private var source = ImagePreviewSource()
-    @State private var adjustments = ToolOptions.Adjustments()
+    @State private var adjustments = ToolMemory.load(.editImage, default: ToolOptions.Adjustments())
     @State private var rendered: CGImage?
     @State private var showOriginal = false
 
     var body: some View {
-        ToolFrame(primary: "Save Edited Copy", canApply: !adjustments.isNeutral, cancel: close, apply: { apply(adjustments) }) {
+        ToolFrame(primary: "Save Edited Copy", canApply: !adjustments.isNeutral, cancel: close, apply: {
+            ToolMemory.save(adjustments, for: .editImage)
+            apply(adjustments)
+        }) {
             HStack(spacing: 0) {
                 PreviewImage(image: showOriginal ? source.image : (rendered ?? source.image), error: source.error)
                     .overlay(alignment: .bottomLeading) {
@@ -71,7 +74,8 @@ struct EditPhotoView: View {
                         HStack {
                             Text("Adjustments").font(.headline)
                             Spacer()
-                            Button("Reset") { adjustments = .neutral }.disabled(adjustments.isNeutral)
+                            Button("Reset") { ToolMemory.forget(.editImage); adjustments = .neutral }.disabled(adjustments.isNeutral)
+                                .help("Clear every adjustment, including the ones remembered from last time")
                         }
                         SectionTitle("Light")
                         LabeledSlider(title: "Exposure", value: $adjustments.exposure)
@@ -123,13 +127,24 @@ struct BackgroundView: View {
     let close: () -> Void
     let apply: (ToolOptions.Background) -> Void
     @StateObject private var source = ImagePreviewSource()
-    @State private var options = ToolOptions.Background()
+    @State private var options = Self.remembered()
     @State private var rendered: CGImage?
     @State private var custom = Color.white
 
+    /// A remembered background image that has since been moved or deleted isn't offered again.
+    private static func remembered() -> ToolOptions.Background {
+        var options = ToolMemory.load(.frameImage, default: ToolOptions.Background())
+        if let path = options.imagePath, !FileManager.default.fileExists(atPath: path) {
+            options.imagePath = nil
+            if options.kind == .image { options.kind = .gradient }
+        }
+        return options
+    }
+
     var body: some View {
         ToolFrame(primary: urls.count == 1 ? "Save with Background" : "Add Background to \(urls.count) Photos", canApply: options.kind != .image || options.imagePath != nil,
-                  cancel: close, apply: { apply(options) }) {
+                  reset: { ToolMemory.forget(.frameImage); options = ToolOptions.Background() },
+                  cancel: close, apply: { ToolMemory.save(options, for: .frameImage); apply(options) }) {
             HStack(spacing: 0) {
                 PreviewImage(image: rendered ?? source.image, error: source.error)
                 Divider()
@@ -233,9 +248,16 @@ struct CropView: View {
     @StateObject private var source = ImagePreviewSource()
     @State private var rects: [CGRect] = [CGRect(x: 0.1, y: 0.1, width: 0.8, height: 0.8)]
     @State private var selection: Int? = 0
-    @State private var aspect: Double? = nil
-    @State private var outputWidth = ""
-    @State private var outputHeight = ""
+    @State private var aspect = ToolMemory.load(.cropImage, default: Memory()).aspect
+    @State private var outputWidth = ToolMemory.load(.cropImage, default: Memory()).outputWidth
+    @State private var outputHeight = ToolMemory.load(.cropImage, default: Memory()).outputHeight
+
+    /// What the crop window remembers: the aspect and output size, not the rectangle on one photo.
+    private struct Memory: Codable {
+        var aspect: Double?
+        var outputWidth = ""
+        var outputHeight = ""
+    }
 
     static let aspects: [(String, Double?)] = [("Free", nil), ("Original", -1), ("Square", 1), ("4:3", 4.0 / 3), ("3:2", 1.5), ("16:9", 16.0 / 9), ("3:4", 0.75), ("4:5", 0.8), ("9:16", 9.0 / 16)]
 
@@ -244,7 +266,11 @@ struct CropView: View {
 
     var body: some View {
         ToolFrame(primary: urls.count == 1 ? "Save Cropped Copy" : "Crop \(urls.count) Images", canApply: rect.width > 0.001 && rect.height > 0.001,
-                  note: urls.count > 1 ? "The same share of each image is kept, for every image." : nil, cancel: close, apply: {
+                  note: urls.count > 1 ? "The same share of each image is kept, for every image." : nil, reset: {
+                      ToolMemory.forget(.cropImage)
+                      aspect = nil; outputWidth = ""; outputHeight = ""
+                  }, cancel: close, apply: {
+                      ToolMemory.save(Memory(aspect: aspect, outputWidth: outputWidth, outputHeight: outputHeight), for: .cropImage)
                       apply(.init(x: rect.minX, y: rect.minY, width: rect.width, height: rect.height, outputWidth: Int(outputWidth) ?? 0, outputHeight: Int(outputHeight) ?? 0))
                   }) {
             VStack(spacing: 10) {
@@ -270,7 +296,10 @@ struct CropView: View {
                 .padding(.horizontal, 16).padding(.bottom, 10)
             }
         }
-        .task { await source.load(urls[0]) }
+        .task {
+            await source.load(urls[0])
+            fitAspect()
+        }
     }
 
     private var effectiveAspect: Double? {
@@ -296,14 +325,16 @@ struct RedactPhotoView: View {
     @StateObject private var source = ImagePreviewSource()
     @State private var rects: [CGRect] = []
     @State private var selection: Int?
-    @State private var style: ToolOptions.Redact.Style = .solid
-    @State private var color = Color.black
+    @State private var style = ToolMemory.load(.redactImage, default: ToolOptions.Redact()).style
+    @State private var color = Color(hex: ToolMemory.load(.redactImage, default: ToolOptions.Redact()).color)
     @State private var detecting = false
     @State private var message: String?
 
     var body: some View {
         ToolFrame(primary: "Save Redacted Copy", canApply: !rects.isEmpty, note: message ?? (rects.isEmpty ? "Drag on the photo to cover an area, or detect faces or text." : style == .blur ? "Blur softens details. Use Solid for sensitive information." : "Metadata is removed from redacted copies."),
+                  reset: { ToolMemory.forget(.redactImage); style = .solid; color = .black },
                   cancel: close, apply: {
+                      ToolMemory.save(ToolOptions.Redact(style: style, color: color.hexString), for: .redactImage)
                       apply(.init(regions: rects.map { .init(x: $0.minX, y: $0.minY, width: $0.width, height: $0.height) }, style: style, color: color.hexString))
                   }) {
             VStack(spacing: 10) {
@@ -372,17 +403,26 @@ struct CollageView: View {
     @State private var options = ToolOptions.Collage()
     @State private var images: [CGImage] = []
     @State private var rendered: CGImage?
-    @State private var color = Color.white
+    @State private var color = Color(hex: ToolMemory.load(.createCollage, default: ToolOptions.Collage()).background)
 
     init(urls: [URL], close: @escaping () -> Void, apply: @escaping (ToolOptions.Collage) -> Void) {
         _urls = State(initialValue: urls)
+        var remembered = ToolMemory.load(.createCollage, default: ToolOptions.Collage())
+        remembered.columns = min(remembered.columns, urls.count)
+        _options = State(initialValue: remembered)
         self.close = close
         self.apply = apply
     }
 
     var body: some View {
-        ToolFrame(primary: "Create Collage", canApply: urls.count >= 2, cancel: close, apply: {
+        ToolFrame(primary: "Create Collage", canApply: urls.count >= 2, reset: {
+            ToolMemory.forget(.createCollage)
+            options = ToolOptions.Collage()
+            color = .white
+        }, cancel: close, apply: {
             var o = options
+            o.columns = min(o.columns, urls.count)
+            ToolMemory.save(o, for: .createCollage)
             o.order = urls.map(\.path)
             apply(o)
         }) {

@@ -185,6 +185,24 @@ final class CoreTests: XCTestCase {
         XCTAssertEqual(Publisher.destinationDirectory(for: readOnly).lastPathComponent, "Downloads")
     }
 
+    func testToolMemoryRemembersPerToolAndVariant() {
+        ToolMemory.store = UserDefaults(suiteName: UUID().uuidString)!
+        defer { ToolMemory.store = .standard }
+        XCTAssertFalse(ToolMemory.isStored(.compress, variant: "images"))
+        ToolMemory.save(ToolOptions.Compress(mode: .percentage, reduction: 70), for: .compress, variant: "images")
+        XCTAssertEqual(ToolMemory.load(.compress, variant: "images", default: ToolOptions.Compress()).reduction, 70)
+        XCTAssertEqual(ToolMemory.load(.compress, variant: "video", default: ToolOptions.Compress()).reduction, 50)
+        // Plain values and fields added after saving.
+        ToolMemory.save(true, for: .removeMetadata)
+        XCTAssertTrue(ToolMemory.load(.removeMetadata, default: false))
+        ToolMemory.store.set(Data(#"{"factor":3}"#.utf8), forKey: "toolSettings.changeVideoSpeed")
+        let speed = ToolMemory.load(.changeVideoSpeed, default: ToolOptions.Speed())
+        XCTAssertEqual(speed.factor, 3)
+        XCTAssertTrue(speed.preservePitch)
+        ToolMemory.forget(.compress, variant: "images")
+        XCTAssertEqual(ToolMemory.load(.compress, variant: "images", default: ToolOptions.Compress()).reduction, 50)
+    }
+
     func testModeMatchingIsExact() {
         let settings = AppSettings(defaults: UserDefaults(suiteName: UUID().uuidString)!)
         XCTAssertEqual(settings.mode(for: [.shift]), .convert)

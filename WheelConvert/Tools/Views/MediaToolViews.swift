@@ -39,8 +39,8 @@ struct TrimView: View {
     let apply: (ToolOptions.Trim) -> Void
     @StateObject private var preview: MediaPreview
     @State private var range: ClosedRange<Double> = 0...1
-    @State private var autoSilence = false
-    @State private var threshold = -45.0
+    @State private var autoSilence = ToolMemory.load(.trimAudio, default: ToolOptions.Trim()).autoTrimSilence
+    @State private var threshold = ToolMemory.load(.trimAudio, default: ToolOptions.Trim()).silenceThreshold
     @State private var detecting = false
     @State private var shortest: Double?
 
@@ -57,7 +57,10 @@ struct TrimView: View {
     var body: some View {
         ToolFrame(primary: urls.count == 1 ? "Save Trimmed Copy" : "Trim \(urls.count) Files", canApply: duration > 0 && range.upperBound - range.lowerBound >= 0.05,
                   note: urls.count > 1 ? "Range applies to all files, up to the shortest file’s duration." : "Keeps \(TimeText.format(range.upperBound - range.lowerBound)).",
+                  reset: isAudio ? { ToolMemory.forget(.trimAudio); autoSilence = false; threshold = -45 } : nil,
                   cancel: { preview.stop(); close() }, apply: {
+                      // Only the silence settings carry over; the range belongs to these files.
+                      if isAudio { ToolMemory.save(ToolOptions.Trim(autoTrimSilence: autoSilence, silenceThreshold: threshold), for: .trimAudio) }
                       apply(.init(start: range.lowerBound, end: range.upperBound, autoTrimSilence: autoSilence, silenceThreshold: threshold))
                   }) {
             VStack(spacing: 10) {
@@ -118,8 +121,11 @@ struct CropVideoView: View {
     @State private var frame: CGImage?
     @State private var rects: [CGRect] = [CGRect(x: 0.1, y: 0.1, width: 0.8, height: 0.8)]
     @State private var selection: Int? = 0
-    @State private var aspect: Double? = nil
+    @State private var aspect = ToolMemory.load(.cropVideo, default: Memory()).aspect
     @State private var frameTime = 0.0
+
+    /// The crop window remembers its aspect, not the rectangle on one video.
+    private struct Memory: Codable { var aspect: Double? }
 
     init(url: URL, close: @escaping () -> Void, apply: @escaping (ToolOptions.VideoCrop) -> Void) {
         self.url = url
@@ -131,7 +137,9 @@ struct CropVideoView: View {
     private var rect: CGRect { rects.first ?? CGRect(x: 0, y: 0, width: 1, height: 1) }
 
     var body: some View {
-        ToolFrame(primary: "Save Cropped Video", canApply: rect.width > 0.01 && rect.height > 0.01, note: "The original audio is kept.", cancel: { preview.stop(); close() }, apply: {
+        ToolFrame(primary: "Save Cropped Video", canApply: rect.width > 0.01 && rect.height > 0.01, note: "The original audio is kept.",
+                  reset: { ToolMemory.forget(.cropVideo); aspect = nil }, cancel: { preview.stop(); close() }, apply: {
+            ToolMemory.save(Memory(aspect: aspect), for: .cropVideo)
             apply(.init(x: rect.minX, y: rect.minY, width: rect.width, height: rect.height))
         }) {
             VStack(spacing: 10) {
@@ -175,7 +183,7 @@ struct SpeedView: View {
     let close: () -> Void
     let apply: (ToolOptions.Speed) -> Void
     @StateObject private var preview: MediaPreview
-    @State private var options = ToolOptions.Speed()
+    @State private var options = ToolMemory.load(.changeVideoSpeed, default: ToolOptions.Speed())
 
     init(url: URL, close: @escaping () -> Void, apply: @escaping (ToolOptions.Speed) -> Void) {
         self.url = url
@@ -186,7 +194,8 @@ struct SpeedView: View {
 
     var body: some View {
         ToolFrame(primary: "Save at \(label)", canApply: options.factor != 1, note: preview.duration > 0 ? "New length: \(TimeText.format(preview.duration / options.factor, millis: false))" : nil,
-                  cancel: { preview.stop(); close() }, apply: { apply(options) }) {
+                  reset: { ToolMemory.forget(.changeVideoSpeed); options = ToolOptions.Speed() },
+                  cancel: { preview.stop(); close() }, apply: { ToolMemory.save(options, for: .changeVideoSpeed); apply(options) }) {
             VStack(spacing: 12) {
                 MediaStage(preview: preview, isAudio: false).frame(minHeight: 200)
                 VStack(alignment: .leading, spacing: 10) {
@@ -292,7 +301,7 @@ struct SplitVideoView: View {
     @StateObject private var preview: MediaPreview
     @State private var points: [Double] = []
     @State private var removed: Set<Int> = []
-    @State private var parts = 2
+    @State private var parts = ToolMemory.load(.splitVideo, default: 2)
 
     init(url: URL, close: @escaping () -> Void, apply: @escaping (ToolOptions.Split) -> Void) {
         self.url = url
@@ -306,7 +315,9 @@ struct SplitVideoView: View {
     var body: some View {
         ToolFrame(primary: !removed.isEmpty ? "Export One Video" : clips.count >= 2 ? "Export \(clips.count) Clips" : "Export Clips", canApply: clips.count >= 2 && removed.count < clips.count,
                   note: clips.count < 2 ? "Add split points at the playhead or split evenly." : removed.isEmpty ? "Every clip is saved in one folder. Remove clips to join the rest instead." : "Removed clips are cut; the rest are joined.",
+                  reset: { ToolMemory.forget(.splitVideo); parts = 2 },
                   cancel: { preview.stop(); close() }, apply: {
+                      ToolMemory.save(parts, for: .splitVideo)
                       apply(.init(points: points, removed: Array(removed), export: removed.isEmpty ? .clips : .merged))
                   }) {
             VStack(spacing: 8) {
@@ -362,7 +373,7 @@ struct RedactVideoView: View {
     @State private var rects: [CGRect] = []
     @State private var ranges: [ClosedRange<Double>?] = []
     @State private var selection: Int?
-    @State private var style: ToolOptions.Redact.Style = .solid
+    @State private var style = ToolMemory.load(.redactVideo, default: ToolOptions.Redact()).style
 
     init(url: URL, close: @escaping () -> Void, apply: @escaping (ToolOptions.Redact) -> Void) {
         self.url = url
@@ -373,7 +384,9 @@ struct RedactVideoView: View {
 
     var body: some View {
         ToolFrame(primary: "Save Redacted Copy", canApply: !rects.isEmpty, note: rects.isEmpty ? "Drag on the video to cover an area." : style == .blur ? "Blur softens details. Use Solid for sensitive information." : nil,
+                  reset: { ToolMemory.forget(.redactVideo); style = .solid },
                   cancel: { preview.stop(); close() }, apply: {
+                      ToolMemory.save(ToolOptions.Redact(style: style), for: .redactVideo)
                       let regions = rects.indices.map { i -> ToolOptions.Redaction in
                           let r = rects[i]
                           let range = i < ranges.count ? ranges[i] : nil
@@ -441,12 +454,13 @@ struct NormalizeView: View {
     let urls: [URL]
     let close: () -> Void
     let apply: (ToolOptions.Normalize) -> Void
-    @State private var options = ToolOptions.Normalize()
+    @State private var options = ToolMemory.load(.normalizeAudio, default: ToolOptions.Normalize())
     @State private var measured: String?
 
     var body: some View {
         ToolFrame(primary: urls.count == 1 ? "Save Normalized Copy" : "Normalize \(urls.count) Files", note: urls.count > 1 ? "Settings apply to every selected file." : nil,
-                  cancel: close, apply: { apply(options) }) {
+                  reset: { ToolMemory.forget(.normalizeAudio); options = ToolOptions.Normalize() },
+                  cancel: close, apply: { ToolMemory.save(options, for: .normalizeAudio); apply(options) }) {
             Form {
                 Picker("Preset", selection: Binding(get: { options.targetLoudness }, set: { options.targetLoudness = $0 })) {
                     Text("Podcast & voice (−16 LUFS)").tag(-16.0)
@@ -483,12 +497,24 @@ struct VisualizerView: View {
     let url: URL
     let close: () -> Void
     let apply: (ToolOptions.Visualizer) -> Void
-    @State private var options = ToolOptions.Visualizer()
-    @State private var color = Color(hex: "6B5CFF")
-    @State private var background = Color(hex: "0B0B12")
+    @State private var options = Self.remembered()
+    @State private var color = Color(hex: Self.remembered().color)
+    @State private var background = Color(hex: Self.remembered().background)
+
+    /// A remembered still image that has since been moved or deleted isn't offered again.
+    private static func remembered() -> ToolOptions.Visualizer {
+        var options = ToolMemory.load(.audioToVideo, default: ToolOptions.Visualizer())
+        if let path = options.imagePath, !FileManager.default.fileExists(atPath: path) { options.imagePath = nil }
+        return options
+    }
 
     var body: some View {
-        ToolFrame(primary: "Create Visualization", canApply: options.style == .waveform || options.imagePath != nil, note: "Saves an MP4 next to the audio.", cancel: close, apply: { apply(options) }) {
+        ToolFrame(primary: "Create Visualization", canApply: options.style == .waveform || options.imagePath != nil, note: "Saves an MP4 next to the audio.", reset: {
+            ToolMemory.forget(.audioToVideo)
+            options = ToolOptions.Visualizer()
+            color = Color(hex: options.color)
+            background = Color(hex: options.background)
+        }, cancel: close, apply: { ToolMemory.save(options, for: .audioToVideo); apply(options) }) {
             HStack(spacing: 0) {
                 ZStack {
                     background
@@ -533,7 +559,7 @@ struct ChannelsView: View {
     let close: () -> Void
     let apply: (ToolOptions.Channels) -> Void
     @StateObject private var preview: MediaPreview
-    @State private var options = ToolOptions.Channels()
+    @State private var options = ToolMemory.load(.audioChannels, default: ToolOptions.Channels())
 
     init(urls: [URL], close: @escaping () -> Void, apply: @escaping (ToolOptions.Channels) -> Void) {
         self.urls = urls
@@ -544,7 +570,8 @@ struct ChannelsView: View {
 
     var body: some View {
         ToolFrame(primary: options.channels == 1 ? "Save Mono Copy" : "Save Stereo Copy", canApply: preview.info?.hasAudio ?? true,
-                  note: preview.info.map { "Source: \($0.audioChannels == 1 ? "mono" : "\($0.audioChannels) channels")" }, cancel: { preview.stop(); close() }, apply: { apply(options) }) {
+                  note: preview.info.map { "Source: \($0.audioChannels == 1 ? "mono" : "\($0.audioChannels) channels")" }, reset: { ToolMemory.forget(.audioChannels); options = ToolOptions.Channels() },
+                  cancel: { preview.stop(); close() }, apply: { ToolMemory.save(options, for: .audioChannels); apply(options) }) {
             Form {
                 Picker("Output", selection: $options.channels) {
                     Text("Mono").tag(1)

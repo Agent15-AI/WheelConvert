@@ -9,6 +9,8 @@ struct ToolFrame<Content: View>: View {
     let primary: String
     var canApply = true
     var note: String?
+    /// Restores the tool's default settings and forgets the remembered ones (see `ToolMemory`).
+    var reset: (() -> Void)?
     let cancel: () -> Void
     let apply: () -> Void
     @ViewBuilder var content: Content
@@ -19,6 +21,9 @@ struct ToolFrame<Content: View>: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             Divider()
             HStack(spacing: 10) {
+                if let reset {
+                    Button("Reset", action: reset).help("Restore this tool’s default settings")
+                }
                 if let note {
                     Text(note).font(.callout).foregroundStyle(.secondary).lineLimit(2).fixedSize(horizontal: false, vertical: true)
                 }

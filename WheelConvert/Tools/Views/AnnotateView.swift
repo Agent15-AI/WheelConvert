@@ -44,12 +44,22 @@ struct AnnotateView: View {
     @StateObject private var source = ImagePreviewSource()
     @State private var items: [ToolOptions.Annotation] = []
     @State private var history: [[ToolOptions.Annotation]] = []
-    @State private var tool: Tool = .arrow
-    @State private var color = "FF3B30"
-    @State private var lineWidth = 0.006
-    @State private var fontSize = 0.045
-    @State private var font = "system"
-    @State private var magnification = 2.0
+    @State private var tool = Tool(rawValue: ToolMemory.load(.annotateImage, default: Memory()).tool) ?? .arrow
+    @State private var color = ToolMemory.load(.annotateImage, default: Memory()).color
+    @State private var lineWidth = ToolMemory.load(.annotateImage, default: Memory()).lineWidth
+    @State private var fontSize = ToolMemory.load(.annotateImage, default: Memory()).fontSize
+    @State private var font = ToolMemory.load(.annotateImage, default: Memory()).font
+    @State private var magnification = ToolMemory.load(.annotateImage, default: Memory()).magnification
+
+    /// What the annotate window remembers: the drawing tool and style, not the drawings.
+    private struct Memory: Codable {
+        var tool = Tool.arrow.rawValue
+        var color = "FF3B30"
+        var lineWidth = 0.006
+        var fontSize = 0.045
+        var font = "system"
+        var magnification = 2.0
+    }
     @State private var selected: UUID?
     @State private var rendered: CGImage?
     private enum DragMode { case move, create }
@@ -59,7 +69,15 @@ struct AnnotateView: View {
     @State private var customColor = Color.red
 
     var body: some View {
-        ToolFrame(primary: "Save Annotated Copy", canApply: !items.isEmpty, note: tool.help, cancel: close, apply: { apply(.init(items: items)) }) {
+        ToolFrame(primary: "Save Annotated Copy", canApply: !items.isEmpty, note: tool.help, reset: {
+            ToolMemory.forget(.annotateImage)
+            let defaults = Memory()
+            tool = .arrow; color = defaults.color; lineWidth = defaults.lineWidth
+            fontSize = defaults.fontSize; font = defaults.font; magnification = defaults.magnification
+        }, cancel: close, apply: {
+            ToolMemory.save(Memory(tool: tool.rawValue, color: color, lineWidth: lineWidth, fontSize: fontSize, font: font, magnification: magnification), for: .annotateImage)
+            apply(.init(items: items))
+        }) {
             VStack(spacing: 8) {
                 toolbar
                 GeometryReader { geo in

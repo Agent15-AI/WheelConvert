@@ -128,7 +128,7 @@ struct SplitPDFView: View {
     let url: URL
     let close: () -> Void
     let apply: (ToolOptions.SplitPDF) -> Void
-    @State private var options = ToolOptions.SplitPDF()
+    @State private var options = ToolMemory.load(.splitPDF, default: ToolOptions.SplitPDF())
     @State private var pageCount = 0
 
     private var parts: Result<Int, WheelError> {
@@ -145,7 +145,9 @@ struct SplitPDFView: View {
         let count = (try? result.get()) ?? 0
         let message: String? = { if case .failure(let e) = result { return e.message }; return nil }()
         ToolFrame(primary: "Split into \(count) PDF\(count == 1 ? "" : "s")", canApply: count >= 1 && pageCount > 0,
-                  note: message ?? "The parts are saved in one folder next to the PDF.", cancel: close, apply: { apply(options) }) {
+                  note: message ?? "The parts are saved in one folder next to the PDF.",
+                  reset: { ToolMemory.forget(.splitPDF); options = ToolOptions.SplitPDF() },
+                  cancel: close, apply: { ToolMemory.save(options, for: .splitPDF); apply(options) }) {
             Form {
                 LabeledContent("Pages", value: "\(pageCount)")
                 Picker("Split", selection: $options.mode) { ForEach(ToolOptions.SplitPDF.Mode.allCases) { Text($0.title).tag($0) } }

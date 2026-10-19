@@ -33,11 +33,24 @@ struct CompressView: View {
         return nil
     }
 
+    /// Photos, videos, audio and PDFs each remember their own compression settings.
+    private var variant: String { FileFormat.detect(urls[0])?.category.rawValue ?? "files" }
+
+    /// Settings → Compression defaults, used until this tool is first applied (and after Reset).
+    private var defaults: ToolOptions.Compress {
+        .init(strength: isImage ? settings.imageCompression.strength : settings.videoCompression, maxDimension: isImage ? settings.imageCompression.maxDimension : 0)
+    }
+
     var body: some View {
         ToolFrame(primary: urls.count == 1 ? "Save Compressed Copy" : "Compress \(urls.count) Files", canApply: problem == nil,
-                  note: problem ?? "Originals stay unchanged.", cancel: close, apply: {
+                  note: problem ?? "Originals stay unchanged.", reset: {
+                      ToolMemory.forget(.compress, variant: variant)
+                      options = defaults
+                      showTarget(nil)
+                  }, cancel: close, apply: {
                       var o = options
                       if let target = targetBytes { o.targetBytes = target }
+                      ToolMemory.save(o, for: .compress, variant: variant)
                       apply(o)
                   }) {
             Form {
@@ -74,12 +87,17 @@ struct CompressView: View {
             }
             .formStyle(.grouped)
             .onAppear {
-                options.strength = isImage ? settings.imageCompression.strength : settings.videoCompression
-                options.maxDimension = isImage ? settings.imageCompression.maxDimension : 0
-                let half = max(1_000, smallest / 2)
-                if half >= 1_000_000 { unit = "MB"; sizeText = String(format: "%.1f", Double(half) / 1_000_000) } else { unit = "KB"; sizeText = "\(half / 1000)" }
+                let remembered = ToolMemory.isStored(.compress, variant: variant)
+                options = ToolMemory.load(.compress, variant: variant, default: defaults)
+                showTarget(remembered ? options.targetBytes : nil)
             }
         }
+    }
+
+    /// Fills the target size field: a remembered target that fits these files, else half the smallest file.
+    private func showTarget(_ remembered: Int64?) {
+        let bytes = remembered.flatMap { $0 < smallest ? $0 : nil } ?? max(1_000, smallest / 2)
+        if bytes >= 1_000_000 { unit = "MB"; sizeText = String(format: "%.1f", Double(bytes) / 1_000_000) } else { unit = "KB"; sizeText = "\(bytes / 1000)" }
     }
 }
 
@@ -95,7 +113,7 @@ struct MetadataView: View {
     @State private var search = ""
     @State private var loading = true
     @State private var error: String?
-    @State private var removeAll = false
+    @State private var removeAll = ToolMemory.load(.removeMetadata, default: false)
 
     private var groups: [(String, [MetadataEntry])] {
         let filtered = entries.filter { search.isEmpty || $0.key.localizedCaseInsensitiveContains(search) || $0.value.localizedCaseInsensitiveContains(search) || $0.group.localizedCaseInsensitiveContains(search) }
@@ -112,7 +130,11 @@ struct MetadataView: View {
     var body: some View {
         ToolFrame(primary: removeAll ? "Remove Metadata" : "Save Edited Copy", canApply: removeAll || !changes.isEmpty,
                   note: removeAll ? "Remove metadata now and save a new file. The original stays unchanged." : (urls.count > 1 ? "Edits apply to every selected file." : nil),
-                  cancel: close, apply: { apply(.init(removeAll: removeAll, changes: removeAll ? [:] : changes)) }) {
+                  reset: { ToolMemory.forget(.removeMetadata); removeAll = false },
+                  cancel: close, apply: {
+                      ToolMemory.save(removeAll, for: .removeMetadata)
+                      apply(.init(removeAll: removeAll, changes: removeAll ? [:] : changes))
+                  }) {
             VStack(spacing: 10) {
                 Toggle(isOn: $removeAll) {
                     VStack(alignment: .leading) {
