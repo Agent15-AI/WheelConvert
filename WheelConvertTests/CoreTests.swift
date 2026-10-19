@@ -1,3 +1,4 @@
+import ImageIO
 import XCTest
 @testable import WheelConvert
 
@@ -236,6 +237,33 @@ final class CoreTests: XCTestCase {
         XCTAssertTrue(FolderWatcher.isCandidate(result))
         OutputLedger.record(result)
         XCTAssertFalse(FolderWatcher.isCandidate(result))
+    }
+
+    func testDitheringRemovesGradientBanding() throws {
+        let width = 600, height = 300
+        let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        let colors = [CGColor(srgbRed: 0.1, green: 0.2, blue: 0.6, alpha: 1), CGColor(srgbRed: 0.95, green: 0.55, blue: 0.3, alpha: 1)] as CFArray
+        context.drawLinearGradient(CGGradient(colorsSpace: CGColorSpace(name: CGColorSpace.sRGB)!, colors: colors, locations: [0, 1])!,
+                                   start: .zero, end: CGPoint(x: width, y: height / 3), options: [])
+        let image = context.makeImage()!
+        let original = try PNGQuantizer.pixels(image)
+        // Banding shows as the 8×8-block average drifting from the original.
+        func blockError(_ data: Data) throws -> Double {
+            let source = CGImageSourceCreateWithData(data as CFData, nil)!
+            let pixels = try PNGQuantizer.pixels(CGImageSourceCreateImageAtIndex(source, 0, nil)!)
+            var total = 0.0, count = 0.0
+            for by in stride(from: 0, to: height - 8, by: 8) { for bx in stride(from: 0, to: width - 8, by: 8) { for c in 0..<3 {
+                var a = 0, b = 0
+                for y in by..<(by + 8) { for x in bx..<(bx + 8) { a += Int(original[(y * width + x) * 4 + c]); b += Int(pixels[(y * width + x) * 4 + c]) } }
+                total += abs(Double(a - b)) / 64; count += 1
+            } } }
+            return total / count
+        }
+        let plain = try PNGQuantizer.encode(image, colors: 64, dither: false), dithered = try PNGQuantizer.encode(image, colors: 64)
+        XCTAssertTrue(try blockError(dithered) < blockError(plain) * 0.6, "dithering should flatten the bands")
+        // Worst case: a noise-free synthetic gradient at 64 colors. Photos grow 0–20%.
+        XCTAssertTrue(dithered.count < plain.count * 3, "dithered \(dithered.count) vs plain \(plain.count)")
     }
 
     func testModeMatchingIsExact() {

@@ -20,6 +20,8 @@ CASES = [
     ("compress jpg target", "compress", ["sample.jpg"], {"mode": "fileSize", "targetBytes": 12000}, "<=12000"),
     ("compress png", "compress", ["sample.png"], {"strength": "balanced"}, "smaller"),
     ("compress png target", "compress", ["sample.png"], {"mode": "fileSize", "targetBytes": 15000}, "<=15000"),
+    ("compress png no dither", "compress", ["sample.png"], {"strength": "balanced", "dither": False}, "smaller"),
+    ("compress png gradient", "compress", ["gradient.png"], {"strength": "strong"}, "smaller"),
     ("compress webp target", "compress", ["sample.webp"], {"mode": "percentage", "reduction": 40}, "smaller"),
     ("compress heic", "compress", ["sample.heic"], {"strength": "strong"}, "smaller"),
     ("compress resize", "compress", ["sample.tiff"], {"strength": "balanced", "maxDimension": 320}, "image"),
@@ -84,6 +86,11 @@ CASES = [
     ("extract tgz", "extractArchive", ["sample.tar.gz"], {}, "folder"),
     ("extract gz", "extractArchive", ["single.txt.gz"], {}, "file:single.txt"),
 ]
+
+# A smooth gradient, where PNG compression without dithering shows bands.
+if not os.path.exists(os.path.join(FIX, "gradient.png")):
+    subprocess.run([os.path.join(ROOT, "Vendor/build/bin/ffmpeg"), "-v", "error", "-f", "lavfi", "-i", "gradients=s=1200x800:c0=0x1a3399:c1=0xf28c4d:x0=0:y0=0:x1=1200:y1=260:nb_colors=2:d=1",
+                    "-frames:v", "1", os.path.join(FIX, "gradient.png")], check=True)
 
 shutil.rmtree(WORK, ignore_errors=True)
 failures = []

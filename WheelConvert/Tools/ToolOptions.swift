@@ -19,6 +19,8 @@ enum ToolOptions {
         var maxDimension = 0
         /// Container for compressed video (MP4, MOV, MKV or WebM); nil keeps the source's when it can.
         var videoFormat: FileFormat?
+        /// Floyd–Steinberg dithering when PNGs are reduced to a palette, so gradients don't band.
+        var dither = true
     }
 
     struct Metadata: Codable, Equatable {

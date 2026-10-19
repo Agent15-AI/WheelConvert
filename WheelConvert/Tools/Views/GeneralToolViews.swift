@@ -78,6 +78,10 @@ struct CompressView: View {
                     Text("Aim for \(ByteCountFormatter.string(fromByteCount: totalBytes * Int64(100 - options.reduction) / 100, countStyle: .file)) in total.")
                         .font(.callout).foregroundStyle(.secondary)
                 }
+                if urls.contains(where: { FileFormat.detect($0) == .png }) && !(options.mode == .preset && options.strength == .light) {
+                    Toggle("Smooth gradients (dithering)", isOn: $options.dither)
+                        .help("Blends the reduced PNG colors so skies and gradients don’t show bands. Files may be a little larger.")
+                }
                 if isImage {
                     Picker("Resize", selection: $options.maxDimension) {
                         Text("Keep original dimensions").tag(0)

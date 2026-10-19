@@ -2,30 +2,63 @@ import CoreGraphics
 import Foundation
 
 /// Lossy PNG compression: reduce an image to a palette (median cut over RGBA) and write an
-/// indexed PNG with per-entry alpha. Typically 50–80% smaller than truecolor PNG.
+/// indexed PNG with per-entry alpha. Typically 50–80% smaller than truecolor PNG. Floyd–Steinberg
+/// dithering spreads each pixel's rounding error to its neighbors, so gradients stay smooth instead
+/// of breaking into bands.
 enum PNGQuantizer {
-    static func encode(_ image: CGImage, colors: Int) throws -> Data {
+    static func encode(_ image: CGImage, colors: Int, dither: Bool = true) throws -> Data {
         let width = image.width, height = image.height
-        var rgba = try pixels(image)
+        let rgba = try pixels(image)
         let palette = medianCut(rgba, colors: max(2, min(256, colors)))
         var indices = [UInt8](repeating: 0, count: width * height)
-        // Nearest palette entry per 5-bit RGB / 3-bit alpha cell, resolved lazily.
-        var table = [Int16](repeating: -1, count: 32 * 32 * 32 * 8)
-        rgba.withUnsafeMutableBufferPointer { p in
+        // Nearest palette entry per 6-bit RGB / 3-bit alpha cell, resolved lazily.
+        var table = [Int16](repeating: -1, count: 1 << 21)
+        func nearest(_ r: Int, _ g: Int, _ b: Int, _ a: Int) -> UInt8 {
+            let key = (r >> 2) << 15 | (g >> 2) << 9 | (b >> 2) << 3 | a >> 5
+            if table[key] >= 0 { return UInt8(table[key]) }
+            var best = 0, bestDistance = Int.max
+            for (j, c) in palette.enumerated() {
+                let dr = r - Int(c.0), dg = g - Int(c.1), db = b - Int(c.2), da = a - Int(c.3)
+                let d = dr * dr * 3 + dg * dg * 4 + db * db * 2 + da * da * 3
+                if d < bestDistance { bestDistance = d; best = j }
+            }
+            table[key] = Int16(best)
+            return UInt8(best)
+        }
+        guard dither else {
             for i in 0..<(width * height) {
                 let o = i * 4
-                let cell = (Int(p[o]) >> 3) << 14 | (Int(p[o + 1]) >> 3) << 9 | (Int(p[o + 2]) >> 3) << 4 | (Int(p[o + 3]) >> 5) << 1
-                let key = cell >> 1
-                if table[key] >= 0 { indices[i] = UInt8(table[key]); continue }
-                var best = 0, bestDistance = Int.max
-                for (j, c) in palette.enumerated() {
-                    let dr = Int(p[o]) - Int(c.0), dg = Int(p[o + 1]) - Int(c.1), db = Int(p[o + 2]) - Int(c.2), da = Int(p[o + 3]) - Int(c.3)
-                    let d = dr * dr * 3 + dg * dg * 4 + db * db * 2 + da * da * 3
-                    if d < bestDistance { bestDistance = d; best = j }
-                }
-                table[key] = Int16(best)
-                indices[i] = UInt8(best)
+                indices[i] = nearest(Int(rgba[o]), Int(rgba[o + 1]), Int(rgba[o + 2]), Int(rgba[o + 3]))
             }
+            return try png(width: width, height: height, palette: palette, indices: indices)
+        }
+        // Errors carried to this row and the next, with a spare column on each side. Rows alternate
+        // direction so the error doesn't drift one way.
+        var current = [Float](repeating: 0, count: (width + 2) * 3), next = current
+        for y in 0..<height {
+            let forward = y % 2 == 0, dx = forward ? 3 : -3
+            for step in 0..<width {
+                let x = forward ? step : width - 1 - step
+                let o = (y * width + x) * 4, e = (x + 1) * 3
+                let a = Int(rgba[o + 3])
+                guard a > 0 else { indices[y * width + x] = nearest(0, 0, 0, 0); continue }
+                let r = min(255, max(0, Float(rgba[o]) + current[e]))
+                let g = min(255, max(0, Float(rgba[o + 1]) + current[e + 1]))
+                let b = min(255, max(0, Float(rgba[o + 2]) + current[e + 2]))
+                let index = nearest(Int(r.rounded()), Int(g.rounded()), Int(b.rounded()), a)
+                indices[y * width + x] = index
+                let c = palette[Int(index)]
+                let errors = SIMD3(r, g, b) - SIMD3(Float(c.0), Float(c.1), Float(c.2))
+                for k in 0..<3 {
+                    let error = errors[k]
+                    current[e + dx + k] += error * 7 / 16
+                    next[e - dx + k] += error * 3 / 16
+                    next[e + k] += error * 5 / 16
+                    next[e + dx + k] += error / 16
+                }
+            }
+            swap(&current, &next)
+            for i in next.indices { next[i] = 0 }
         }
         return try png(width: width, height: height, palette: palette, indices: indices)
     }

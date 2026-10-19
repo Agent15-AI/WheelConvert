@@ -30,7 +30,12 @@ enum ImageTools {
         var smallest = Int64.max
         // Try quality first, then shrink dimensions until the target fits.
         for _ in 0..<7 {
-            let attempt = try encode(image, format: format, strength: options.strength, target: target)
+            var attempt = try encode(image, format: format, strength: options.strength, target: target, dither: options.dither)
+            // Dithering's fine grain can cost more bytes than it saves on clean, noise-free gradients;
+            // rather than miss the size, those keep plain palette colors.
+            if format == .png && options.dither && Int64(attempt.count) >= (target ?? original) {
+                attempt = try encode(image, format: format, strength: options.strength, target: target, dither: false)
+            }
             smallest = min(smallest, Int64(attempt.count))
             if let target, Int64(attempt.count) > target {
                 let cg = image.cgImage
@@ -61,7 +66,7 @@ enum ImageTools {
     }
 
     /// Encodes once (or, with a target, searches quality) and returns the bytes.
-    static func encode(_ image: LoadedImage, format: FileFormat, strength: CompressionStrength, target: Int64?) throws -> Data {
+    static func encode(_ image: LoadedImage, format: FileFormat, strength: CompressionStrength, target: Int64?, dither: Bool = true) throws -> Data {
         switch format {
         case .webp:
             if let target { return try WebPCodec.encode(image.cgImage, quality: 75, targetSize: Int(target)) }
@@ -81,7 +86,7 @@ enum ImageTools {
             let palettes = target == nil ? [strength == .strong ? 96 : 256] : [256, 160, 96, 64, 32]
             var last = Data()
             for colors in palettes {
-                last = try PNGQuantizer.encode(image.cgImage, colors: colors)
+                last = try PNGQuantizer.encode(image.cgImage, colors: colors, dither: dither)
                 if let target, Int64(last.count) > target { continue }
                 return last
             }

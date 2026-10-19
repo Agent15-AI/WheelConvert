@@ -452,6 +452,7 @@ struct PresetEditor: View {
                 Text("Keep original dimensions").tag(0)
                 ForEach([4096, 3840, 2560, 1920, 1600, 1280, 1024, 800], id: \.self) { Text("\($0) px longest edge").tag($0) }
             }
+            Toggle("Smooth PNG gradients (dithering)", isOn: options.dither)
             Picker("Save video as", selection: options.videoFormat) {
                 Text("Same Format").tag(FileFormat?.none)
                 ForEach([FileFormat.mp4, .mov, .mkv, .webm]) { Text($0.title).tag(FileFormat?.some($0)) }
