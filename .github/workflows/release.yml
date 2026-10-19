@@ -1,0 +1,49 @@
+# Push a tag like v1.0.0 to build WheelConvert, publish a GitHub release with the .dmg, and
+# point the Homebrew cask on main at it.
+name: Release
+on:
+  push:
+    tags: ["v*.*.*"]
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: macos-15
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Tools
+        run: |
+          brew install xcodegen pkg-config openjdk@21
+          sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+      # FFmpeg and its codecs take the longest to build; reuse them until their script changes.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            Vendor/src
+            Vendor/build/deps
+            Vendor/build/bin
+            Vendor/build/licenses
+          key: ffmpeg-${{ runner.arch }}-${{ hashFiles('scripts/build-ffmpeg.sh') }}
+      - name: Vendor builds
+        run: |
+          [ -x Vendor/build/bin/ffmpeg ] || zsh scripts/build-ffmpeg.sh
+          zsh scripts/build-java.sh
+          zsh scripts/build-exiftool.sh
+          (cd js && npm ci && npm run build)
+      - name: Build release
+        run: zsh scripts/release.sh "${GITHUB_REF_NAME#v}"
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --title "WheelConvert ${GITHUB_REF_NAME#v}" --notes-file .github/release-notes.md
+      - name: Update the Homebrew cask on main
+        run: |
+          cp Casks/wheelconvert.rb "$RUNNER_TEMP/wheelconvert.rb"
+          git fetch origin main && git checkout main
+          cp "$RUNNER_TEMP/wheelconvert.rb" Casks/wheelconvert.rb
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Homebrew cask for $GITHUB_REF_NAME" && git push origin main

@@ -15,6 +15,8 @@ rsync -a --delete "$VENDOR/java/lib/" "$RES/Office/lib/"
 rsync -a --delete "$VENDOR/js/" "$RES/JS/"
 rsync -a "$VENDOR/licenses/" "$RES/Licenses/"
 cp "$PROJECT_DIR/THIRD-PARTY-NOTICES.md" "$RES/Licenses/" 2>/dev/null || true
+# The JDK ships read-only files; owner-writable lets the download quarantine be cleared from them.
+chmod -R u+w "$RES"
 
 IDENTITY="${EXPANDED_CODE_SIGN_IDENTITY:--}"
 [[ -z "$IDENTITY" ]] && IDENTITY="-"

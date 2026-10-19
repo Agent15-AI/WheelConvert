@@ -9,3 +9,4 @@ node_modules/
 WheelConvert.xcodeproj/
 Vendor/build/
 graphify-out/
+dist/

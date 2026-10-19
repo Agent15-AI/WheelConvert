@@ -17,6 +17,40 @@ folder is read-only) and never overwrite an existing file.
 
 Requirements: macOS 13 or later on Apple silicon.
 
+## Install
+
+**Homebrew:**
+
+```bash
+brew tap Agent15-AI/wheelconvert https://github.com/Agent15-AI/WheelConvert
+```
+
+```bash
+brew install --cask wheelconvert
+```
+
+**Or download** `WheelConvert-x.y.z.dmg` from [Releases](https://github.com/Agent15-AI/WheelConvert/releases/latest),
+open it and drag WheelConvert to Applications. WheelConvert isn't notarized by Apple, so the first launch
+says macOS can't verify the developer. Open **System Settings → Privacy & Security** and click **Open Anyway**
+next to WheelConvert, or run this once:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/WheelConvert.app
+```
+
+Then open WheelConvert. It lives in the menu bar; the welcome window walks through the shortcuts.
+
+## Releasing
+
+Push a version tag and GitHub Actions builds everything from source, publishes the release (disk image,
+checksum, and the LGPL source archives) and updates `Casks/wheelconvert.rb` on `main`:
+
+```bash
+git tag v1.0.0 && git push origin v1.0.0
+```
+
+To build the same release locally instead: `scripts/release.sh 1.0.0` writes it to `dist/`.
+
 ## Building
 
 Tools: Xcode (built with 27.1), Homebrew `xcodegen` and `pkg-config`, Node.js, and JDK 21

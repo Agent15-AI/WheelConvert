@@ -15,9 +15,10 @@ WheelConvert is free. It bundles the open-source components below; their full li
 | libwebp | 1.6.0 | BSD 3-Clause (also linked into the app for WebP encoding) |
 
 FFmpeg and its codec libraries run as standalone programs that WheelConvert launches; they are not linked
-into the app. The exact sources are fetched by `scripts/build-ffmpeg.sh`, which records the configure
-flags used (`ffmpeg -version` prints them). You may rebuild and replace `Tools/ffmpeg` and `Tools/ffprobe`
-with your own LGPL-compatible builds.
+into the app. The exact FFmpeg and LAME source archives used for each build are attached to its GitHub
+release, and `scripts/build-ffmpeg.sh` rebuilds them with the recorded configure flags (`ffmpeg -version`
+prints them). You may rebuild and replace `Tools/ffmpeg` and `Tools/ffprobe` with your own LGPL-compatible
+builds.
 
 ## Metadata
 
@@ -39,7 +40,7 @@ ExifTool runs as an unmodified script on macOS's `/usr/bin/perl`.
 | Apache Log4j API | 2.24.3 | Apache 2.0 |
 | SparseBitSet | 1.3 | Apache 2.0 |
 | curvesapi | 1.08 | BSD 3-Clause |
-| OpenJDK runtime (jlink image) | 21.0.12 | GPL 2 with the Classpath Exception |
+| OpenJDK runtime (jlink image) | 21.0.12 | GPL 2 with the Classpath Exception; source: https://github.com/openjdk/jdk21u |
 
 Apache NOTICE files for these libraries are included under `Licenses/Java`.
 

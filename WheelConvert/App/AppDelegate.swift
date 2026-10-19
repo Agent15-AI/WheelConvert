@@ -7,6 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         Self.removeStaleStaging()
+        Self.clearHelperQuarantine()
         wheel = WheelController()
         menuBar = MenuBarController()
         wheel.onChoose = { item, urls in
@@ -49,6 +50,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ToolLauncher.open(tool, urls: urls)
         case .fileAction(let action):
             FileActions.perform(action, urls: urls)
+        }
+    }
+
+    /// Downloaded builds aren't notarized, so every file in the bundle carries the download quarantine.
+    /// Once the person has chosen to open the app, its bundled ffmpeg and Java must not trip Gatekeeper
+    /// again each time they run.
+    private static func clearHelperQuarantine() {
+        guard let resources = Bundle.main.resourceURL else { return }
+        DispatchQueue.global(qos: .utility).async {
+            let walker = FileManager.default.enumerator(at: resources, includingPropertiesForKeys: nil)
+            while let url = walker?.nextObject() as? URL { removexattr(url.path, "com.apple.quarantine", XATTR_NOFOLLOW) }
         }
     }
 
