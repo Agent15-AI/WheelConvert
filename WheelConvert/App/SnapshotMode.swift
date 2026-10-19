@@ -58,7 +58,8 @@ enum SnapshotMode {
             if let index = Int(ProcessInfo.processInfo.environment["HIGHLIGHT"] ?? "") { wheel.debugHighlight(index) }
         }
         // Let async loading (thumbnails, previews) settle.
-        try await Task.sleep(nanoseconds: UInt64((Double(ProcessInfo.processInfo.environment["WAIT"] ?? "2.5") ?? 2.5) * 1_000_000_000))
+        let wait: Double = Double(ProcessInfo.processInfo.environment["WAIT"] ?? "") ?? 2.5
+        try await Task.sleep(nanoseconds: UInt64(wait * 1_000_000_000))
         view.layoutSubtreeIfNeeded()
         guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { throw WheelError("Could not capture.") }
         view.cacheDisplay(in: view.bounds, to: rep)

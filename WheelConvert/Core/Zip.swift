@@ -223,9 +223,11 @@ struct ZipWriter {
 
     static func dosTimestamp(_ date: Date) -> (UInt16, UInt16) {
         let c = Calendar(identifier: .gregorian).dateComponents(in: .current, from: date)
-        let time = UInt16((c.hour ?? 0) << 11 | (c.minute ?? 0) << 5 | (c.second ?? 0) / 2)
-        let day = UInt16(max(0, (c.year ?? 1980) - 1980) << 9 | (c.month ?? 1) << 5 | (c.day ?? 1))
-        return (time, day)
+        let hour: Int = c.hour ?? 0, minute: Int = c.minute ?? 0, second: Int = c.second ?? 0
+        let year: Int = max(0, (c.year ?? 1980) - 1980), month: Int = c.month ?? 1, day: Int = c.day ?? 1
+        let time: Int = hour << 11 | minute << 5 | second / 2
+        let date: Int = year << 9 | month << 5 | day
+        return (UInt16(time), UInt16(date))
     }
 }
 

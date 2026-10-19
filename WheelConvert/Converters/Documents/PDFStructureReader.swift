@@ -153,13 +153,20 @@ enum PDFStructureReader {
         guard let cgPage = page.pageRef else { return [] }
         let rects = ImagePlacementScanner.placements(on: cgPage)
         let box = page.bounds(for: .cropBox)
-        let candidates = rects.compactMap { $0.intersection(box).isNull ? nil : $0.intersection(box) }
-            .filter { $0.width >= 36 && $0.height >= 36 && $0.width * $0.height < box.width * box.height * 0.92 }
+        // Explicit types keep older Swift compilers from timing out on these closures.
+        func area(_ r: CGRect) -> CGFloat { r.width * r.height }
+        let pageArea: CGFloat = area(box)
+        let candidates: [CGRect] = rects.compactMap { (r: CGRect) -> CGRect? in
+            let clipped = r.intersection(box)
+            guard !clipped.isNull, clipped.width >= 36, clipped.height >= 36, area(clipped) < pageArea * 0.92 else { return nil }
+            return clipped
+        }
         guard !candidates.isEmpty, page.rotation % 360 == 0, let rendered = render(page, scale: 2) else { return [] }
         var seen: [CGRect] = []
         var output: [(Data, CGRect)] = []
-        for rect in candidates.sorted(by: { $0.width * $0.height > $1.width * $1.height }) {
-            if seen.contains(where: { $0.contains(rect) || $0.intersection(rect).width * $0.intersection(rect).height > rect.width * rect.height * 0.6 }) { continue }
+        for rect in candidates.sorted(by: { (a: CGRect, b: CGRect) -> Bool in area(a) > area(b) }) {
+            let overlapsSeen = seen.contains { (s: CGRect) -> Bool in s.contains(rect) || area(s.intersection(rect)) > area(rect) * 0.6 }
+            if overlapsSeen { continue }
             seen.append(rect)
             let crop = CGRect(x: (rect.minX - box.minX) * 2, y: (box.maxY - rect.maxY) * 2, width: rect.width * 2, height: rect.height * 2).integral
             guard let piece = rendered.cropping(to: crop) else { continue }
@@ -307,7 +314,8 @@ enum PDFStructureReader {
                         let acrossPage = gap < -lineHeight && pageIndex > 0 && heading == nil && listKind == nil && open.heading == nil
                             && !(last.text.hasSuffix(".") || last.text.hasSuffix(":") || last.text.hasSuffix("?") || last.text.hasSuffix("!"))
                             && (line.text.first?.isLowercase ?? false)
-                        let previousEndsShort = open.heading == nil && open.list == nil && last.bounds.width < (open.lines.map(\.bounds.width).max() ?? 0) * 0.6 && open.lines.count > 1
+                        let widest: CGFloat = open.lines.map(\.bounds.width).max() ?? 0
+                        let previousEndsShort = open.heading == nil && open.list == nil && open.lines.count > 1 && last.bounds.width < widest * 0.6
                         if (continues || acrossPage) && !previousEndsShort {
                             current?.lines.append(line)
                             continue

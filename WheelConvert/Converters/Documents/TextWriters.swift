@@ -30,7 +30,8 @@ struct MarkdownWriter {
                     let pad = String(repeating: "   ", count: p.listLevel)
                     let marker: String
                     if list == .ordered {
-                        let n = (counters[p.listLevel] ?? ((p.listStart ?? 1) - 1)) + 1
+                        let previous: Int = counters[p.listLevel] ?? ((p.listStart ?? 1) - 1)
+                        let n = previous + 1
                         counters[p.listLevel] = n
                         for deeper in counters.keys where deeper > p.listLevel { counters[deeper] = nil }
                         marker = "\(n)."
@@ -164,7 +165,8 @@ enum PlainTextWriter {
                     let pad = String(repeating: "    ", count: p.listLevel)
                     let marker: String
                     if list == .ordered {
-                        let n = (counters[p.listLevel] ?? ((p.listStart ?? 1) - 1)) + 1
+                        let previous: Int = counters[p.listLevel] ?? ((p.listStart ?? 1) - 1)
+                        let n = previous + 1
                         counters[p.listLevel] = n
                         marker = "\(n)."
                     } else {

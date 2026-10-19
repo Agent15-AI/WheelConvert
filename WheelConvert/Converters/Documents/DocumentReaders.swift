@@ -75,8 +75,13 @@ struct HTMLReader {
 
         static func trimmed(_ runs: [StructuredDocument.Run]) -> [StructuredDocument.Run] {
             var copy = runs
-            if !copy.isEmpty { copy[0].text = String(copy[0].text.drop { $0 == " " || $0 == "\n" }) }
-            if !copy.isEmpty { copy[copy.count - 1].text = String(copy[copy.count - 1].text.reversed().drop { $0 == " " || $0 == "\n" }.reversed()) }
+            let isBlank = { (c: Character) -> Bool in c == " " || c == "\n" }
+            if !copy.isEmpty { copy[0].text = String(copy[0].text.drop(while: isBlank)) }
+            if let last = copy.indices.last {
+                var text = copy[last].text
+                while let ch = text.last, isBlank(ch) { text.removeLast() }
+                copy[last].text = text
+            }
             return copy.filter { !$0.text.isEmpty || $0.note != nil }
         }
 

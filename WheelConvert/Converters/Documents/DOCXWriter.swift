@@ -320,10 +320,11 @@ struct DOCXWriter {
         types += "<Override PartName=\"/docProps/core.xml\" ContentType=\"application/vnd.openxmlformats-package.core-properties+xml\"/></Types>"
 
         let rootRels = header + "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"rId1\" Type=\"\(r)/officeDocument\" Target=\"word/document.xml\"/><Relationship Id=\"rId2\" Type=\"http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties\" Target=\"docProps/core.xml\"/></Relationships>"
-        let core = header + "<cp:coreProperties xmlns:cp=\"http://schemas.openxmlformats.org/package/2006/metadata/core-properties\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:dcterms=\"http://purl.org/dc/terms/\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">"
-            + (title.map { "<dc:title>\(escape($0))</dc:title>" } ?? "") + (author.map { "<dc:creator>\(escape($0))</dc:creator>" } ?? "")
-            + (language.map { "<dc:language>\(escape($0))</dc:language>" } ?? "")
-            + "<dcterms:created xsi:type=\"dcterms:W3CDTF\">\(ISO8601DateFormatter().string(from: Date()))</dcterms:created></cp:coreProperties>"
+        var core = header + "<cp:coreProperties xmlns:cp=\"http://schemas.openxmlformats.org/package/2006/metadata/core-properties\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:dcterms=\"http://purl.org/dc/terms/\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">"
+        if let title { core += "<dc:title>\(escape(title))</dc:title>" }
+        if let author { core += "<dc:creator>\(escape(author))</dc:creator>" }
+        if let language { core += "<dc:language>\(escape(language))</dc:language>" }
+        core += "<dcterms:created xsi:type=\"dcterms:W3CDTF\">\(ISO8601DateFormatter().string(from: Date()))</dcterms:created></cp:coreProperties>"
 
         var zip = ZipWriter()
         try zip.add("[Content_Types].xml", Data(types.utf8))

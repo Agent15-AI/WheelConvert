@@ -19,7 +19,23 @@ jobs:
           brew install xcodegen pkg-config openjdk@21
           sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
       # FFmpeg and its codecs take the longest to build; reuse them until their script changes.
-      - uses: actions/cache@v4
+      - name: Restore FFmpeg build
+        id: ffmpeg
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            Vendor/src
+            Vendor/build/deps
+            Vendor/build/bin
+            Vendor/build/licenses
+          key: ffmpeg-${{ runner.arch }}-${{ hashFiles('scripts/build-ffmpeg.sh') }}
+      - name: Build FFmpeg
+        if: steps.ffmpeg.outputs.cache-hit != 'true'
+        run: zsh scripts/build-ffmpeg.sh
+      # Saved right away, so a failure in a later step doesn't throw the build away.
+      - name: Save FFmpeg build
+        if: steps.ffmpeg.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
         with:
           path: |
             Vendor/src
@@ -29,7 +45,6 @@ jobs:
           key: ffmpeg-${{ runner.arch }}-${{ hashFiles('scripts/build-ffmpeg.sh') }}
       - name: Vendor builds
         run: |
-          [ -x Vendor/build/bin/ffmpeg ] || zsh scripts/build-ffmpeg.sh
           zsh scripts/build-java.sh
           zsh scripts/build-exiftool.sh
           (cd js && npm ci && npm run build)
