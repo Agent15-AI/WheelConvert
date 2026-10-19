@@ -170,6 +170,21 @@ final class CoreTests: XCTestCase {
         XCTAssertTrue(RecentResults.urls.isEmpty)
     }
 
+    func testSaveFolderFallsBackToOriginalThenDownloads() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let chosen = dir.appendingPathComponent("Chosen"), originals = dir.appendingPathComponent("Originals")
+        try FileManager.default.createDirectory(at: chosen, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: originals, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let source = originals.appendingPathComponent("a.png")
+        XCTAssertEqual(Publisher.destinationDirectory(for: source).path, originals.path)
+        XCTAssertEqual(Publisher.$folder.withValue(chosen) { Publisher.destinationDirectory(for: source) }.path, chosen.path)
+        let missing = dir.appendingPathComponent("Gone")
+        XCTAssertEqual(Publisher.$folder.withValue(missing) { Publisher.destinationDirectory(for: source) }.path, originals.path)
+        let readOnly = URL(fileURLWithPath: "/System/Library/a.png")
+        XCTAssertEqual(Publisher.destinationDirectory(for: readOnly).lastPathComponent, "Downloads")
+    }
+
     func testModeMatchingIsExact() {
         let settings = AppSettings(defaults: UserDefaults(suiteName: UUID().uuidString)!)
         XCTAssertEqual(settings.mode(for: [.shift]), .convert)

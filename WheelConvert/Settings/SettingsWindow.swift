@@ -70,6 +70,24 @@ struct GeneralSettings: View {
             } footer: {
                 Text("Start dragging a file, then press the keys. The wheel stays open until you drop.").font(.callout).foregroundStyle(.secondary)
             }
+            Section {
+                Picker("Save results", selection: $settings.saveDestination) { ForEach(SaveDestination.allCases) { Text($0.title).tag($0) } }
+                    .onChange(of: settings.saveDestination) { value in
+                        if value == .folder && settings.saveFolder == nil && !chooseSaveFolder() { settings.saveDestination = .besideOriginal }
+                    }
+                if settings.saveDestination == .folder {
+                    HStack {
+                        Text(settings.saveFolder.map { FileManager.default.displayName(atPath: $0.path) } ?? "No folder chosen")
+                            .foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle).help(settings.saveFolder?.path ?? "")
+                        Spacer()
+                        Button("Choose…") { _ = chooseSaveFolder() }
+                    }
+                }
+            } header: {
+                Text("Results")
+            } footer: {
+                Text("Results never replace existing files. When a folder can’t be written to, they go to Downloads.").font(.callout).foregroundStyle(.secondary)
+            }
             Section("Wheel") {
                 Picker("Appearance", selection: $settings.wheelTheme) { ForEach(WheelTheme.allCases) { Text($0.title).tag($0) } }
                     .pickerStyle(.segmented)
@@ -86,6 +104,20 @@ struct GeneralSettings: View {
             }
         }
         .formStyle(.grouped)
+    }
+
+    /// - Returns: Whether a folder was chosen.
+    private func chooseSaveFolder() -> Bool {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = true
+        panel.prompt = "Choose"
+        panel.message = "Choose the folder where WheelConvert saves results."
+        panel.directoryURL = settings.saveFolder
+        guard panel.runModal() == .OK, let url = panel.url else { return false }
+        settings.saveFolder = url
+        return true
     }
 }
 

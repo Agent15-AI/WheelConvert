@@ -13,6 +13,18 @@ enum FloatBehavior: String, CaseIterable, Codable, Identifiable {
     var title: String { self == .createNew ? "Create a New Float" : "Add Files to an Existing Float" }
 }
 
+enum SaveDestination: String, CaseIterable, Codable, Identifiable {
+    case besideOriginal, ask, folder
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .besideOriginal: "Next to the Original"
+        case .ask: "Ask Each Time"
+        case .folder: "In a Chosen Folder"
+        }
+    }
+}
+
 /// App-wide preferences, persisted in UserDefaults.
 final class AppSettings: ObservableObject {
     static let shared = AppSettings()
@@ -29,6 +41,8 @@ final class AppSettings: ObservableObject {
         terminalApp = defaults.string(forKey: Keys.terminal) ?? "com.apple.Terminal"
         revealResults = defaults.object(forKey: Keys.reveal) as? Bool ?? true
         hasCompletedWelcome = defaults.bool(forKey: Keys.welcome)
+        saveDestination = SaveDestination(rawValue: defaults.string(forKey: Keys.saveDestination) ?? "") ?? .besideOriginal
+        saveFolder = defaults.string(forKey: Keys.saveFolder).map { URL(fileURLWithPath: $0, isDirectory: true) }
         if let data = defaults.data(forKey: Keys.conversion),
            let stored = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
             // Each format decodes on its own, filling fields added in later versions from the defaults.
@@ -56,6 +70,8 @@ final class AppSettings: ObservableObject {
         static let terminal = "fileActionsTerminalApplication"
         static let reveal = "revealResultsInFinder"
         static let welcome = "hasCompletedWelcome"
+        static let saveDestination = "saveResultsDestination"
+        static let saveFolder = "saveResultsFolder"
         static let conversion = "conversionDefaults"
         static let imageCompression = "imageCompressionDefaults"
         static let videoCompression = "videoCompressionDefaults"
@@ -70,6 +86,8 @@ final class AppSettings: ObservableObject {
     @Published var terminalApp: String { didSet { defaults.set(terminalApp, forKey: Keys.terminal) } }
     @Published var revealResults: Bool { didSet { defaults.set(revealResults, forKey: Keys.reveal) } }
     @Published var hasCompletedWelcome: Bool { didSet { defaults.set(hasCompletedWelcome, forKey: Keys.welcome) } }
+    @Published var saveDestination: SaveDestination { didSet { defaults.set(saveDestination.rawValue, forKey: Keys.saveDestination) } }
+    @Published var saveFolder: URL? { didSet { defaults.set(saveFolder?.path, forKey: Keys.saveFolder) } }
     @Published private(set) var conversionDefaults: [FileFormat: ConversionOptions] = [:]
     @Published var imageCompression = ImageCompressionDefaults() {
         didSet { defaults.set(try? JSONEncoder().encode(imageCompression), forKey: Keys.imageCompression) }

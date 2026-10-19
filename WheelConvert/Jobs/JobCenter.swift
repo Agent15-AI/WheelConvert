@@ -56,12 +56,13 @@ final class JobCenter: ObservableObject {
 
     var isBusy: Bool { jobs.contains { $0.phase == .running } }
 
-    /// Converts each file to the target format. Await `task` on the result to wait for the outputs.
+    /// Converts each file to the target format. Await `task` on the result to wait for the outputs;
+    /// nil when the person cancelled choosing where to save.
     @discardableResult
-    func convert(_ urls: [URL], to target: FileFormat) -> JobState {
+    func convert(_ urls: [URL], to target: FileFormat, canAsk: Bool = true) -> JobState? {
         let options = AppSettings.shared.options(for: target)
         let hardwareVideo = [.mp4, .mov, .mkv].contains(target) && urls.contains { FileFormat.detect($0)?.category == .video }
-        return run(title: "Converting to \(target.title)", items: urls, parallel: Self.parallelLimit(hardwareVideo: hardwareVideo)) { url, progress in
+        return run(title: "Converting to \(target.title)", items: urls, parallel: Self.parallelLimit(hardwareVideo: hardwareVideo), canAsk: canAsk) { url, progress in
             try await Converter.convert(url, to: target, options: options, progress: progress)
         }
     }
@@ -75,11 +76,14 @@ final class JobCenter: ObservableObject {
     }
 
     /// Runs work over the items, up to `parallel` at a time. Each item reports its own progress and
-    /// returns what it saved; outputs and failures are listed in selection order.
+    /// returns what it saved; outputs and failures are listed in selection order. `canAsk: false`
+    /// (automation) saves next to the originals when Settings says to ask each time.
     @discardableResult
-    func run(title: String, items: [URL], parallel: Int = 1, work: @escaping (URL, @escaping (Double) -> Void) async throws -> [URL]) -> JobState {
+    func run(title: String, items: [URL], parallel: Int = 1, canAsk: Bool = true,
+             work: @escaping (URL, @escaping (Double) -> Void) async throws -> [URL]) -> JobState? {
+        guard let folder = saveFolder(for: items, canAsk: canAsk) else { return nil }
         let job = JobState(title: title, total: items.count)
-        start(job) {
+        start(job, folder: folder) {
             var saved: [Int: [URL]] = [:]
             var failed: [Int: (name: String, message: String)] = [:]
             @MainActor func record(_ index: Int, _ result: Result<[URL], Error>) {
@@ -114,11 +118,13 @@ final class JobCenter: ObservableObject {
     }
 
     /// One job over the whole selection (merge, join, collage…), saving a single result set.
-    func runBatch(title: String, items: [URL], work: @escaping (@escaping (Double) -> Void) async throws -> [URL]) {
+    @discardableResult
+    func runBatch(title: String, items: [URL], work: @escaping (@escaping (Double) -> Void) async throws -> [URL]) -> JobState? {
+        guard let folder = saveFolder(for: items, canAsk: true) else { return nil }
         let job = JobState(title: title, total: 1)
         let name = items.count == 1 ? items[0].lastPathComponent : "\(items.count) files"
         job.active[0] = (name, 0)
-        start(job) {
+        start(job, folder: folder) {
             do {
                 job.outputs = try await work { fraction in Task { @MainActor in job.report(0, fraction) } }
             } catch is CancellationError {
@@ -126,12 +132,36 @@ final class JobCenter: ObservableObject {
                 job.failures.append((name, error.localizedDescription))
             }
         }
+        return job
     }
 
     /// Scripted runs (`--batch`) stay off screen: no panels, no Finder windows.
     private var showsUI: Bool { NSApp.activationPolicy() != .prohibited }
 
-    private func start(_ job: JobState, _ body: @escaping @MainActor () async -> Void) {
+    /// Settings → Save results for a new job: `.some(nil)` saves next to each original, a folder saves
+    /// there, and nil means the person cancelled the "ask each time" panel.
+    private func saveFolder(for items: [URL], canAsk: Bool) -> URL?? {
+        guard showsUI else { return .some(nil) }
+        let settings = AppSettings.shared
+        switch settings.saveDestination {
+        case .besideOriginal: return .some(nil)
+        case .folder: return .some(settings.saveFolder)
+        case .ask:
+            guard canAsk else { return .some(nil) }
+            let panel = NSOpenPanel()
+            panel.canChooseFiles = false
+            panel.canChooseDirectories = true
+            panel.canCreateDirectories = true
+            panel.prompt = "Save Here"
+            panel.message = items.count == 1 ? "Choose where to save the result for “\(items[0].lastPathComponent)”." : "Choose where to save the results for \(items.count) files."
+            panel.directoryURL = items.first?.deletingLastPathComponent()
+            NSApp.activate(ignoringOtherApps: true)
+            guard panel.runModal() == .OK, let url = panel.url else { return nil }
+            return .some(url)
+        }
+    }
+
+    private func start(_ job: JobState, folder: URL?, _ body: @escaping @MainActor () async -> Void) {
         jobs.append(job)
         if showsUI {
             let panel = ProgressPanelController(job: job, stackIndex: panels.count)
@@ -139,7 +169,7 @@ final class JobCenter: ObservableObject {
             panel.show()
         }
         job.task = Task { @MainActor in
-            await body()
+            await Publisher.$folder.withValue(folder) { await body() }
             finish(job)
         }
     }

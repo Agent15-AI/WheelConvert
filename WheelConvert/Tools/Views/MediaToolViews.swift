@@ -58,7 +58,6 @@ struct TrimView: View {
         ToolFrame(primary: urls.count == 1 ? "Save Trimmed Copy" : "Trim \(urls.count) Files", canApply: duration > 0 && range.upperBound - range.lowerBound >= 0.05,
                   note: urls.count > 1 ? "Range applies to all files, up to the shortest file’s duration." : "Keeps \(TimeText.format(range.upperBound - range.lowerBound)).",
                   cancel: { preview.stop(); close() }, apply: {
-                      preview.stop()
                       apply(.init(start: range.lowerBound, end: range.upperBound, autoTrimSilence: autoSilence, silenceThreshold: threshold))
                   }) {
             VStack(spacing: 10) {
@@ -133,7 +132,6 @@ struct CropVideoView: View {
 
     var body: some View {
         ToolFrame(primary: "Save Cropped Video", canApply: rect.width > 0.01 && rect.height > 0.01, note: "The original audio is kept.", cancel: { preview.stop(); close() }, apply: {
-            preview.stop()
             apply(.init(x: rect.minX, y: rect.minY, width: rect.width, height: rect.height))
         }) {
             VStack(spacing: 10) {
@@ -157,6 +155,7 @@ struct CropVideoView: View {
                 .padding(.horizontal, 16).padding(.bottom, 10)
             }
         }
+        .onDisappear { preview.stop() }
         .task {
             await preview.load(video: true, playback: false)
             frame = try? await MediaTools.frame(url, at: 0)
@@ -187,7 +186,7 @@ struct SpeedView: View {
 
     var body: some View {
         ToolFrame(primary: "Save at \(label)", canApply: options.factor != 1, note: preview.duration > 0 ? "New length: \(TimeText.format(preview.duration / options.factor, millis: false))" : nil,
-                  cancel: { preview.stop(); close() }, apply: { preview.stop(); apply(options) }) {
+                  cancel: { preview.stop(); close() }, apply: { apply(options) }) {
             VStack(spacing: 12) {
                 MediaStage(preview: preview, isAudio: false).frame(minHeight: 200)
                 VStack(alignment: .leading, spacing: 10) {
@@ -213,6 +212,7 @@ struct SpeedView: View {
                 .padding(.horizontal, 18).padding(.bottom, 10)
             }
         }
+        .onDisappear { preview.stop() }
         .task { await preview.load(video: true) }
         .onChange(of: options.factor) { value in if preview.isPlaying { preview.player?.rate = Float(value) } }
         .onChange(of: options.preservePitch) { value in preview.player?.currentItem?.audioTimePitchAlgorithm = value ? .spectral : .varispeed }
@@ -240,7 +240,7 @@ struct SnapshotsView: View {
 
     var body: some View {
         ToolFrame(primary: times.count <= 1 ? "Save Frame" : "Save \(times.count) Frames", canApply: !times.isEmpty, note: "Full-resolution PNGs.",
-                  cancel: { preview.stop(); close() }, apply: { preview.stop(); apply(.init(times: times)) }) {
+                  cancel: { preview.stop(); close() }, apply: { apply(.init(times: times)) }) {
             HStack(spacing: 0) {
                 VStack(spacing: 8) {
                     MediaStage(preview: preview, isAudio: false)
@@ -271,6 +271,7 @@ struct SnapshotsView: View {
                 .frame(width: 220)
             }
         }
+        .onDisappear { preview.stop() }
         .task { await preview.load(video: true, thumbnails: 14) }
     }
 
@@ -306,7 +307,6 @@ struct SplitVideoView: View {
         ToolFrame(primary: !removed.isEmpty ? "Export One Video" : clips.count >= 2 ? "Export \(clips.count) Clips" : "Export Clips", canApply: clips.count >= 2 && removed.count < clips.count,
                   note: clips.count < 2 ? "Add split points at the playhead or split evenly." : removed.isEmpty ? "Every clip is saved in one folder. Remove clips to join the rest instead." : "Removed clips are cut; the rest are joined.",
                   cancel: { preview.stop(); close() }, apply: {
-                      preview.stop()
                       apply(.init(points: points, removed: Array(removed), export: removed.isEmpty ? .clips : .merged))
                   }) {
             VStack(spacing: 8) {
@@ -339,6 +339,7 @@ struct SplitVideoView: View {
                 .padding(.horizontal, 12).padding(.bottom, 8)
             }
         }
+        .onDisappear { preview.stop() }
         .task { await preview.load(video: true, thumbnails: 14) }
     }
 
@@ -373,7 +374,6 @@ struct RedactVideoView: View {
     var body: some View {
         ToolFrame(primary: "Save Redacted Copy", canApply: !rects.isEmpty, note: rects.isEmpty ? "Drag on the video to cover an area." : style == .blur ? "Blur softens details. Use Solid for sensitive information." : nil,
                   cancel: { preview.stop(); close() }, apply: {
-                      preview.stop()
                       let regions = rects.indices.map { i -> ToolOptions.Redaction in
                           let r = rects[i]
                           let range = i < ranges.count ? ranges[i] : nil
@@ -410,6 +410,7 @@ struct RedactVideoView: View {
                 .padding(.horizontal, 12).padding(.bottom, 8)
             }
         }
+        .onDisappear { preview.stop() }
         .task {
             await preview.load(video: true, thumbnails: 14, playback: false)
             frame = try? await MediaTools.frame(url, at: 0)
@@ -543,7 +544,7 @@ struct ChannelsView: View {
 
     var body: some View {
         ToolFrame(primary: options.channels == 1 ? "Save Mono Copy" : "Save Stereo Copy", canApply: preview.info?.hasAudio ?? true,
-                  note: preview.info.map { "Source: \($0.audioChannels == 1 ? "mono" : "\($0.audioChannels) channels")" }, cancel: { preview.stop(); close() }, apply: { preview.stop(); apply(options) }) {
+                  note: preview.info.map { "Source: \($0.audioChannels == 1 ? "mono" : "\($0.audioChannels) channels")" }, cancel: { preview.stop(); close() }, apply: { apply(options) }) {
             Form {
                 Picker("Output", selection: $options.channels) {
                     Text("Mono").tag(1)
@@ -561,6 +562,7 @@ struct ChannelsView: View {
             }
             .formStyle(.grouped)
         }
+        .onDisappear { preview.stop() }
         .task { await preview.load(video: false, waveformBins: 500, stereo: true) }
         .onChange(of: options) { _ in applyPreviewVolume() }
     }
@@ -597,7 +599,6 @@ struct BleepView: View {
 
     var body: some View {
         ToolFrame(primary: "Save Bleeped Copy", canApply: !ranges.isEmpty, note: "Each range is replaced with a 1 kHz tone.", cancel: { preview.stop(); close() }, apply: {
-            preview.stop()
             apply(.init(ranges: ranges.map { [$0.lowerBound, $0.upperBound] }))
         }) {
             VStack(spacing: 10) {
@@ -631,6 +632,7 @@ struct BleepView: View {
                 .padding(.horizontal, 16).padding(.bottom, 8)
             }
         }
+        .onDisappear { preview.stop() }
         .task { await preview.load(video: false, waveformBins: 1200) }
     }
 

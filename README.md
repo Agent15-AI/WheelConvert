@@ -13,7 +13,8 @@ or **WheelConvert File Actions**; the wheel opens at the pointer and a click pic
 elsewhere cancels). These are macOS Services, so they may sit under Quick Actions or Services when many are installed.
 
 Keys are configurable in Settings. Results are saved next to the original (or in Downloads when that
-folder is read-only) and never overwrite an existing file.
+folder is read-only) and never overwrite an existing file. Settings → General → Save results can instead
+ask for a folder each time or always use one chosen folder. The menu bar menu lists recent results.
 
 Requirements: macOS 13 or later on Apple silicon.
 

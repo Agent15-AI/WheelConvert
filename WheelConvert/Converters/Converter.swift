@@ -80,10 +80,16 @@ struct Staging {
 }
 
 enum Publisher {
-    /// Results go beside the source; read-only places (disk images, shared folders) fall back to Downloads.
+    /// The folder the running job saves to (Settings → Save results), set by JobCenter for each job.
+    /// Without one, as in scripted runs, results go next to the original.
+    @TaskLocal static var folder: URL?
+
+    /// The job's folder, else beside the source; read-only places (disk images, shared folders)
+    /// fall back to Downloads.
     static func destinationDirectory(for source: URL) -> URL {
-        let directory = source.deletingLastPathComponent()
-        if FileManager.default.isWritableFile(atPath: directory.path) { return directory }
+        for directory in [folder, source.deletingLastPathComponent()].compactMap({ $0 }) where FileManager.default.isWritableFile(atPath: directory.path) {
+            return directory
+        }
         return FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first ?? FileManager.default.temporaryDirectory
     }
 

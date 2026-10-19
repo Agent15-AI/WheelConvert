@@ -19,7 +19,7 @@ enum CommandLineMode {
                     guard let format = FileFormat(rawValue: args[i + 1]) else { throw WheelError("Unknown format \(args[i + 1])") }
                     let end = args.firstIndex(of: "--cancel-after") ?? args.count
                     let files = args[(i + 2)..<end].map { URL(fileURLWithPath: $0).standardizedFileURL }
-                    let job = JobCenter.shared.convert(files, to: format)
+                    guard let job = JobCenter.shared.convert(files, to: format) else { throw WheelError("The batch did not start.") }
                     if end < args.count, let delay = Double(args[end + 1]) {
                         try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
                         job.cancel()

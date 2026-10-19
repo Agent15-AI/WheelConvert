@@ -125,19 +125,20 @@ enum ToolRunner {
     }
 
     /// Queues a configured tool as a job with a progress panel.
-    @MainActor
-    static func submit(_ tool: ToolKind, request: ToolRequest, urls: [URL]) {
+    /// - Returns: false when the person cancelled choosing where to save.
+    @MainActor @discardableResult
+    static func submit(_ tool: ToolKind, request: ToolRequest, urls: [URL]) -> Bool {
         if request.isBatch {
-            JobCenter.shared.runBatch(title: tool.progressTitle, items: urls) { progress in
+            return JobCenter.shared.runBatch(title: tool.progressTitle, items: urls) { progress in
                 try await runBatch(request, on: urls, progress: progress)
-            }
+            } != nil
         } else {
             // Muting and metadata edits copy the streams; WebM and GIF are encoded in software.
             let hardwareVideo = ![.muteVideo, .removeMetadata].contains(tool)
                 && urls.contains { FileFormat.detect($0).map { $0.category == .video && $0 != .webm && $0 != .gif } ?? false }
-            JobCenter.shared.run(title: tool.progressTitle, items: urls, parallel: JobCenter.parallelLimit(hardwareVideo: hardwareVideo)) { url, progress in
+            return JobCenter.shared.run(title: tool.progressTitle, items: urls, parallel: JobCenter.parallelLimit(hardwareVideo: hardwareVideo)) { url, progress in
                 try await run(request, on: url, progress: progress)
-            }
+            } != nil
         }
     }
 }
