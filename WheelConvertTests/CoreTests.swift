@@ -137,6 +137,16 @@ final class CoreTests: XCTestCase {
         XCTAssertEqual(options.strength, .balanced)
     }
 
+    func testPDFImageResolutionOption() throws {
+        XCTAssertEqual(ConversionOptions().pdfImageDPI, 150)
+        // Settings saved before the option existed still decode, at the default.
+        let stored = try JSONDecoder().decode(ConversionOptions.self, from: Data(#"{"quality":"high"}"#.utf8), defaults: ConversionOptions())
+        XCTAssertEqual(stored.pdfImageDPI, 150)
+        XCTAssertTrue(ConversionSetting.applicable(to: .jpg).contains(.pdfImageDPI))
+        XCTAssertTrue(ConversionSetting.applicable(to: .png).contains(.pdfImageDPI))
+        XCTAssertFalse(ConversionSetting.applicable(to: .webp).contains(.pdfImageDPI))
+    }
+
     func testModeMatchingIsExact() {
         let settings = AppSettings(defaults: UserDefaults(suiteName: UUID().uuidString)!)
         XCTAssertEqual(settings.mode(for: [.shift]), .convert)

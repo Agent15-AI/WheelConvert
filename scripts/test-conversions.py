@@ -148,6 +148,20 @@ if not filters or any("batch" in f for f in filters):
     elif sorted(os.listdir(d)) != sorted([os.path.basename(p) for p in paths] + [os.path.basename(o) for o in outs]): err = f"stray files {os.listdir(d)}"
     results.append(("batch", "cancel", "OK" if not err else "FAIL " + err, 0)); print(f"{'OK  ' if not err else 'FAIL'} cancelled parallel batch {err or ''}")
 
+# PDF pages saved as images follow the resolution option (72/150/300 DPI).
+if not filters or any("dpi" in f for f in filters):
+    widths = {}
+    for dpi in (72, 150, 300):
+        d = os.path.join(WORK, f"dpi-{dpi}"); os.makedirs(d)
+        src = os.path.join(d, "sample.pdf"); shutil.copy2(os.path.join(FIXTURES, "sample.pdf"), src)
+        r = run([APP, "--convert", src, "png", "--options", json.dumps({"pdfImageDPI": dpi})])
+        out = next((l[4:] for l in r.stdout.splitlines() if l.startswith("OUT:")), None)
+        first = out if out and os.path.isfile(out) else (os.path.join(out, sorted(os.listdir(out))[0]) if out else None)
+        m = re.search(r"pixelWidth: (\d+)", run(["sips", "-g", "pixelWidth", first]).stdout) if first else None
+        widths[dpi] = int(m.group(1)) if m else 0
+    err = None if widths[72] > 0 and all(abs(widths[d] / widths[72] - d / 72) < 0.03 for d in (150, 300)) else f"widths {widths}"
+    results.append(("sample.pdf", "png dpi", "OK" if not err else "FAIL " + err, 0)); print(f"{'OK  ' if not err else 'FAIL'} PDF page resolution {widths} {err or ''}")
+
 ok = sum(1 for r in results if r[2] == "OK")
 print(f"\n{ok}/{len(results)} conversions passed")
 for r in results:

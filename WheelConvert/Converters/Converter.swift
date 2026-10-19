@@ -128,7 +128,8 @@ enum PDFConverter {
         switch target {
         case .jpg, .png:
             let document = try open(source)
-            return try renderPages(document, as: target, staging: staging, base: base, dpi: 300, progress: progress)
+            let dpi = CGFloat(min(600, max(36, options.pdfImageDPI)))
+            return try renderPages(document, as: target, staging: staging, base: base, dpi: dpi, progress: progress)
         case .txt:
             let document = try open(source)
             try text(document, progress: progress).write(to: single, atomically: false, encoding: .utf8)

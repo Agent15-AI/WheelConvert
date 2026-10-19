@@ -253,6 +253,12 @@ struct FormatOptionsEditor: View {
                 Picker("From PDF", selection: options.officeLayout) { ForEach(ConversionOptions.OfficeLayout.allCases) { Text($0.title).tag($0) } }
                 Text(settings.options(for: format).officeLayout.detail).font(.callout).foregroundStyle(.secondary)
             }
+        case .pdfImageDPI:
+            VStack(alignment: .leading) {
+                Picker("From PDF", selection: options.pdfImageDPI) { ForEach(ConversionSetting.pdfImageDPIs, id: \.self) { Text("\($0) DPI").tag($0) } }
+                    .pickerStyle(.segmented)
+                Text("Resolution of PDF pages saved as images. 150 DPI suits screens; 300 DPI suits printing.").font(.callout).foregroundStyle(.secondary)
+            }
         }
     }
 }

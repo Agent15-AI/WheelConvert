@@ -67,6 +67,8 @@ struct ConversionOptions: Codable, Equatable {
     var compression: ArchiveCompression = .balanced
     var epubLayout: EPUBLayout = .adjustableText
     var officeLayout: OfficeLayout = .editable
+    /// Pixels per inch for PDF pages saved as JPG or PNG.
+    var pdfImageDPI = 150
 
     static func defaults(for format: FileFormat) -> ConversionOptions {
         var options = ConversionOptions()
@@ -85,12 +87,14 @@ struct ConversionOptions: Codable, Equatable {
 
 /// The settings a format exposes in Settings → Conversion.
 enum ConversionSetting: CaseIterable {
-    case quality, preserveMetadata, videoMaxHeight, audioBitrate, audioSampleDepth, gifFrameRate, gifMaxWidth, compression, epubLayout, officeLayout
+    case quality, preserveMetadata, videoMaxHeight, audioBitrate, audioSampleDepth, gifFrameRate, gifMaxWidth, compression, epubLayout, officeLayout, pdfImageDPI
 
     static func applicable(to format: FileFormat) -> [ConversionSetting] {
         switch format {
-        case .jpg, .webp, .heic, .avif: [.quality, .preserveMetadata]
-        case .png, .tiff, .bmp: [.preserveMetadata]
+        case .jpg: [.quality, .preserveMetadata, .pdfImageDPI]
+        case .webp, .heic, .avif: [.quality, .preserveMetadata]
+        case .png: [.preserveMetadata, .pdfImageDPI]
+        case .tiff, .bmp: [.preserveMetadata]
         case .mp4, .mov, .mkv, .webm, .avi, .wmv: [.quality, .videoMaxHeight, .audioBitrate, .preserveMetadata]
         case .gif: [.gifFrameRate, .gifMaxWidth]
         case .mp3, .m4a, .ogg, .opus: [.audioBitrate, .preserveMetadata]
@@ -107,4 +111,5 @@ enum ConversionSetting: CaseIterable {
     static let videoHeights = [0, 2160, 1440, 1080, 720, 480]
     static let gifFrameRates = [10, 12, 15, 20, 24, 30]
     static let gifWidths = [320, 480, 640, 800, 1080, 0]
+    static let pdfImageDPIs = [72, 150, 300]
 }
