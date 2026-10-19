@@ -64,9 +64,9 @@ final class WheelController {
         panel.setFrame(frame, display: false)
         wheel.frame = NSRect(origin: .zero, size: frame.size)
         wheel.configure(items: items, idleText: idle)
-        if !wasVisible { panel.alphaValue = 1 }
         panel.orderFrontRegardless()
-        wheel.animateIn()
+        // Switching wheels swaps the petals in place; animating it would show both wheels at once.
+        if !wasVisible { wheel.animateIn() }
     }
 
     func dismiss() {

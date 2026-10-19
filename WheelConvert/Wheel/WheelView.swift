@@ -20,6 +20,9 @@ final class WheelView: NSView {
     }
 
     private let backdrop = NSVisualEffectView()
+    /// Holds the drawn layers. They need a view of their own above the backdrop: AppKit restacks a
+    /// view's subview layers above layers added to it directly, which hid every label in Glass mode.
+    private let ringView = NSView()
     private let ringLayer = CALayer()
     private var petalLayers: [CAShapeLayer] = []
     private var labelLayers: [CATextLayer] = []
@@ -46,8 +49,13 @@ final class WheelView: NSView {
         backdrop.autoresizingMask = [.width, .height]
         backdrop.frame = bounds
         addSubview(backdrop)
+        ringView.wantsLayer = true
+        ringView.autoresizingMask = [.width, .height]
+        ringView.frame = bounds
+        addSubview(ringView)
         ringLayer.masksToBounds = false
-        layer?.addSublayer(ringLayer)
+        ringView.layer?.addSublayer(ringLayer)
+        hubText.actions = Self.noFade
         hubText.alignmentMode = .center
         hubText.isWrapped = true
         hubText.truncationMode = .end
@@ -59,6 +67,10 @@ final class WheelView: NSView {
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    /// Text layers render their contents later, at display time, outside any transaction that turns
+    /// animations off; without this the old and new titles crossfade, looking like two wheels.
+    static let noFade: [String: CAAction] = ["contents": NSNull(), "string": NSNull(), "position": NSNull(), "bounds": NSNull()]
 
     static func outerRadius(for count: Int) -> CGFloat {
         count <= 8 ? 132 : min(176, 132 + CGFloat(count - 8) * 9)
@@ -77,6 +89,7 @@ final class WheelView: NSView {
     override func layout() {
         super.layout()
         backdrop.frame = bounds
+        ringView.frame = bounds
         rebuild()
     }
 
@@ -175,6 +188,7 @@ final class WheelView: NSView {
             let arcWidth = items.count == 1 ? 120 : max(40, 2 * midRadius * sin(step / 2) - 10)
 
             let text = CATextLayer()
+            text.actions = Self.noFade
             text.contentsScale = scale
             text.alignmentMode = .center
             text.truncationMode = .end
@@ -187,6 +201,7 @@ final class WheelView: NSView {
             if let symbol = item.symbol, let image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)?
                 .withSymbolConfiguration(.init(pointSize: 15, weight: .semibold)) {
                 let icon = CALayer()
+                icon.actions = Self.noFade
                 icon.contentsScale = scale
                 icon.contentsGravity = .resizeAspect
                 let size = image.size
@@ -302,26 +317,29 @@ final class WheelView: NSView {
 
     // MARK: Intro
 
+    /// Pops the wheel in when it appears.
     func animateIn() {
         guard let layer else { return }
-        let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         layer.removeAllAnimations()
         let fade = CABasicAnimation(keyPath: "opacity")
         fade.fromValue = 0
         fade.toValue = 1
         fade.duration = 0.14
         layer.add(fade, forKey: "fade")
-        guard !reduceMotion else { return }
-        ringLayer.anchorPoint = CGPoint(x: 0.5, y: 0.5)
-        ringLayer.position = center
-        let spring = CASpringAnimation(keyPath: "transform.scale")
-        spring.fromValue = 0.82
-        spring.toValue = 1
+        guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else { return }
+        // Scale the whole wheel, blurred backdrop included, about its center. The view's layer
+        // pivots on its anchor point, so the center is held in place with a translation.
+        let pivot = CGPoint(x: bounds.midX - bounds.width * layer.anchorPoint.x, y: bounds.midY - bounds.height * layer.anchorPoint.y)
+        let start = CATransform3DConcat(CATransform3DConcat(CATransform3DMakeTranslation(-pivot.x, -pivot.y, 0), CATransform3DMakeScale(0.82, 0.82, 1)),
+                                        CATransform3DMakeTranslation(pivot.x, pivot.y, 0))
+        let spring = CASpringAnimation(keyPath: "transform")
+        spring.fromValue = NSValue(caTransform3D: start)
+        spring.toValue = NSValue(caTransform3D: CATransform3DIdentity)
         spring.damping = 18
         spring.stiffness = 320
         spring.mass = 1
         spring.duration = spring.settlingDuration
-        ringLayer.add(spring, forKey: "intro")
+        layer.add(spring, forKey: "intro")
     }
 
     // MARK: Dragging destination
