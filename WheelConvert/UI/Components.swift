@@ -133,7 +133,8 @@ struct PlayerSurface: NSViewRepresentable {
     }
 }
 
-/// Loads media for previewing, transcoding a small copy when AVFoundation can't play the original.
+/// Loads media for previewing. Files AVFoundation can't play are streamed through `PreviewStream`,
+/// which encodes only the part around the playhead, so even hour-long videos start right away.
 @MainActor
 final class MediaPreview: ObservableObject {
     @Published var info: MediaInfo?
@@ -142,41 +143,62 @@ final class MediaPreview: ObservableObject {
     @Published var isPlaying = false
     @Published var thumbnails: [CGImage] = []
     @Published var waveform: [[Float]] = []
+    /// A still of the scrub position, shown while a streamed preview fetches that part.
+    @Published var scrubFrame: CGImage?
     @Published var error: String?
     private var observer: Any?
+    private var statusObserver: NSKeyValueObservation?
     private var stopAt: Double?
+    private var extras: Task<Void, Never>?
+    private var scrubTask: Task<Void, Never>?
+    private var seekGeneration = 0
     nonisolated(unsafe) private var previewFile: URL?
+    nonisolated(unsafe) private var stream: PreviewStream?
     let url: URL
 
     init(url: URL) { self.url = url }
 
     deinit {
-        // Closing the window without Cancel still removes the preview copy; the player stops as it's released.
+        // Closing the window without Cancel still removes preview files; the player stops as it's released.
+        stream?.stop()
         if let previewFile { try? FileManager.default.removeItem(at: previewFile) }
     }
 
     var duration: Double { info?.duration ?? 0 }
 
-    /// - Parameter playback: false for tools that only show still frames; skips building a player
-    ///   (and the preview transcode formats AVFoundation can't play would need).
+    /// Returns once the file's facts and (when `playback`) a player are ready; thumbnails and the
+    /// waveform keep loading afterwards.
+    /// - Parameter playback: false for tools that only show still frames; skips building a player.
     func load(video: Bool, thumbnails count: Int = 0, waveformBins: Int = 0, stereo: Bool = false, playback: Bool = true) async {
         do {
             let info = try await MediaInfo.probe(url)
             self.info = info
-            if !playback {
-                if count > 0, info.hasVideo { thumbnails = (try? await MediaTools.thumbnails(url, count: count, duration: info.duration)) ?? [] }
-                return
-            }
+            loadExtras(info, thumbnails: count, waveformBins: waveformBins, stereo: stereo)
+            guard playback else { return }
             let asset = AVURLAsset(url: url)
             var playable = (try? await asset.load(.isPlayable)) ?? false
             if playable, video, info.hasVideo { playable = !((try? await asset.loadTracks(withMediaType: .video)) ?? []).isEmpty }
             var source = url
             if !playable {
-                source = try await MediaTools.previewCopy(url, video: video && info.hasVideo)
-                previewFile = source
+                let stream = PreviewStream(source: url, duration: info.duration, video: video && info.hasVideo)
+                do {
+                    source = try await stream.start()
+                    self.stream = stream
+                } catch {
+                    stream.stop()
+                    source = try await MediaTools.previewCopy(url, video: video && info.hasVideo)
+                    previewFile = source
+                }
             }
             let player = AVPlayer(url: source)
             player.actionAtItemEnd = .pause
+            // Don't ask the encoder for minutes ahead. (Turning off automaticallyWaitsToMinimizeStalling
+            // stalls HLS at time zero, so it stays on.)
+            if stream != nil { player.currentItem?.preferredForwardBufferDuration = 16 }
+            statusObserver = player.currentItem?.observe(\.status) { [weak self] item, _ in
+                guard item.status == .failed else { return }
+                Task { @MainActor in self?.error = "This file can’t be previewed." }
+            }
             self.player = player
             // Weak captures: the player retains this block, so a strong one would keep it (and its audio) alive.
             observer = player.addPeriodicTimeObserver(forInterval: CMTime(value: 1, timescale: 60), queue: .main) { [weak self, weak player] time in
@@ -187,16 +209,47 @@ final class MediaPreview: ObservableObject {
                     if let stop = self.stopAt, time.seconds >= stop { player.pause(); self.stopAt = nil }
                 }
             }
-            if count > 0, info.hasVideo { thumbnails = (try? await MediaTools.thumbnails(url, count: count, duration: info.duration)) ?? [] }
-            if waveformBins > 0, info.hasAudio { waveform = (try? await MediaTools.waveform(url, bins: waveformBins, stereo: stereo)) ?? [] }
         } catch {
             self.error = error.localizedDescription
         }
     }
 
+    private func loadExtras(_ info: MediaInfo, thumbnails count: Int, waveformBins: Int, stereo: Bool) {
+        let url = url
+        extras = Task { [weak self] in
+            if count > 0, info.hasVideo {
+                let images = (try? await MediaTools.thumbnails(url, count: count, duration: info.duration)) ?? []
+                self?.thumbnails = images
+            }
+            if waveformBins > 0, info.hasAudio {
+                let wave = (try? await MediaTools.waveform(url, bins: waveformBins, stereo: stereo)) ?? []
+                self?.waveform = wave
+            }
+        }
+    }
+
     func seek(_ seconds: Double) {
         time = min(max(0, seconds), duration)
-        player?.seek(to: CMTime(seconds: time, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
+        seekGeneration += 1
+        let generation = seekGeneration
+        player?.seek(to: CMTime(seconds: time, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] finished in
+            guard finished else { return }
+            Task { @MainActor in
+                guard let self, self.seekGeneration == generation else { return }
+                self.scrubTask?.cancel()
+                self.scrubFrame = nil
+            }
+        }
+        guard stream != nil, info?.hasVideo == true else { return }
+        // A streamed preview may need a moment to encode a far-off spot; a still frame bridges it.
+        scrubTask?.cancel()
+        let url = url, time = time
+        scrubTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 90_000_000)
+            guard !Task.isCancelled, let image = try? await MediaTools.frame(url, at: time), !Task.isCancelled else { return }
+            guard let self, self.seekGeneration == generation else { return }
+            self.scrubFrame = image
+        }
     }
 
     func toggle(range: ClosedRange<Double>? = nil) {
@@ -220,6 +273,10 @@ final class MediaPreview: ObservableObject {
         player?.pause()
         if let observer { player?.removeTimeObserver(observer) }
         observer = nil
+        extras?.cancel()
+        scrubTask?.cancel()
+        stream?.stop()
+        stream = nil
         if let previewFile { try? FileManager.default.removeItem(at: previewFile) }
     }
 }

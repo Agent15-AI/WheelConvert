@@ -20,6 +20,9 @@ struct MediaStage: View {
                 }
             } else if let player = preview.player {
                 PlayerSurface(player: player)
+                if let still = preview.scrubFrame {
+                    Image(decorative: still, scale: 1).resizable().aspectRatio(contentMode: .fit)
+                }
             } else {
                 ProgressView("Loading video…").colorScheme(.dark)
             }

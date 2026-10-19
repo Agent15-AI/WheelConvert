@@ -137,5 +137,41 @@ for index, (name, tool, files, options, check) in enumerate(CASES):
     status = "OK  " if not err else "FAIL"
     print(f"{status} {name:28} {time.time() - t:5.1f}s {os.path.basename(outs[0]) if outs else ''} {err or ''}")
     if err: failures.append((name, err))
+# Tool previews of formats AVFoundation can't play must start fast, even for hour-long files.
+FFMPEG = os.path.join(ROOT, "Vendor/build/bin/ffmpeg")
+LONG = os.path.join(FIX, "long")
+LONG_CODECS = {
+    "mkv": ["-c:v", "h264_videotoolbox", "-b:v", "1M", "-g", "60", "-c:a", "aac_at", "-b:a", "96k"],
+    "webm": ["-c:v", "libvpx-vp9", "-deadline", "realtime", "-cpu-used", "8", "-row-mt", "1", "-b:v", "1M", "-g", "120", "-c:a", "libopus", "-b:a", "96k"],
+    "avi": ["-c:v", "mpeg4", "-q:v", "8", "-vtag", "XVID", "-g", "60", "-c:a", "libmp3lame", "-b:a", "96k"],
+    "wmv": ["-c:v", "wmv2", "-q:v", "8", "-g", "60", "-c:a", "wmav2", "-b:a", "96k"],
+}
+
+def long_fixture(ext):
+    """A one-hour 720p file: one minute encoded once, then joined 60 times without re-encoding."""
+    path = os.path.join(LONG, f"long.{ext}")
+    if os.path.exists(path): return path
+    os.makedirs(LONG, exist_ok=True)
+    clip = os.path.join(LONG, f"clip.{ext}")
+    subprocess.run([FFMPEG, "-v", "error", "-y", "-f", "lavfi", "-i", "testsrc2=s=1280x720:r=30:d=60", "-f", "lavfi", "-i", "sine=f=440:r=44100:d=60"]
+                   + LONG_CODECS[ext] + [clip], check=True)
+    listing = os.path.join(LONG, f"list-{ext}.txt")
+    with open(listing, "w") as f: f.write(f"file '{clip}'\n" * 60)
+    subprocess.run([FFMPEG, "-v", "error", "-y", "-f", "concat", "-safe", "0", "-i", listing, "-c", "copy", path], check=True)
+    return path
+
+PREVIEWS = [(f"preview long {ext}", lambda ext=ext: long_fixture(ext), 3000) for ext in LONG_CODECS]
+PREVIEWS += [(f"preview {name}", lambda name=name: os.path.join(FIX, name), 1.5) for name in ["sample.mkv", "sample.webm", "sample.avi", "sample.wmv", "sample.ogg", "sample.opus", "sample.wma"]]
+for name, fixture, seek in PREVIEWS:
+    if only and not any(o in name for o in only): continue
+    r = subprocess.run([APP, "--preview-check", fixture(), str(seek)], capture_output=True, text=True, timeout=120)
+    times = dict(l.split(":", 1) for l in r.stdout.splitlines() if l.startswith(("PLAYING:", "SEEKED:")))
+    err = None
+    if r.returncode != 0 or len(times) != 2: err = (r.stderr.strip().splitlines() or ["no output"])[-1]
+    # Includes a quarter second of playback; the target is "playing within about two seconds".
+    elif float(times["PLAYING"]) > 2.5 or float(times["SEEKED"]) > 2.5: err = f"too slow {times}"
+    print(f"{'OK  ' if not err else 'FAIL'} {name:28} start {times.get('PLAYING', '-')}s, seek {times.get('SEEKED', '-')}s {err or ''}")
+    if err: failures.append((name, err))
+
 print(f"\n{len(failures)} failures")
 for f in failures: print("  ", f)

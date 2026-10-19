@@ -540,15 +540,21 @@ enum MediaTools {
         return result.map { $0.map { min(1, $0 / peak) } }
     }
 
-    /// Evenly spaced thumbnails. Seeking to each one decodes a few frames instead of the whole video.
+    /// Evenly spaced thumbnails. Seeking to each one decodes a few frames instead of the whole video,
+    /// and four run at once, so long files fill the strip quickly.
     static func thumbnails(_ source: URL, count: Int, height: Int = 90, duration: Double) async throws -> [CGImage] {
         guard duration > 0, count > 0 else { return [] }
-        var images: [CGImage] = []
-        for i in 0..<count {
-            let time = (Double(i) + 0.5) * duration / Double(count)
-            if let image = try? await frame(source, at: time, maxHeight: height) { images.append(image) }
+        var images = [CGImage?](repeating: nil, count: count)
+        await withTaskGroup(of: (Int, CGImage?).self) { group in
+            for i in 0..<count {
+                if i >= 4, let done = await group.next() { images[done.0] = done.1 }
+                let time = (Double(i) + 0.5) * duration / Double(count)
+                group.addTask { (i, try? await frame(source, at: time, maxHeight: height)) }
+            }
+            for await done in group { images[done.0] = done.1 }
         }
-        return images
+        try Task.checkCancellation()
+        return images.compactMap { $0 }
     }
 
     static func frame(_ source: URL, at time: Double, maxHeight: Int = 720) async throws -> CGImage {
@@ -560,7 +566,7 @@ enum MediaTools {
         return image
     }
 
-    /// A playable preview copy for formats AVFoundation can't open (OGG, Opus, WMA, MKV, WebM, AVI…).
+    /// A playable copy of the whole file, for when `PreviewStream` can't start.
     static func previewCopy(_ source: URL, video: Bool) async throws -> URL {
         let scratch = FileManager.default.temporaryDirectory.appendingPathComponent("WheelConvert-preview-\(UUID().uuidString).\(video ? "mp4" : "m4a")")
         let args = video

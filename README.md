@@ -72,14 +72,15 @@ The Xcode build embeds and signs the vendor tools (`scripts/embed-vendor.sh`).
 
 ```bash
 python3 -I scripts/test-conversions.py   # every conversion in the matrix, outputs validated
-python3 -I scripts/test-tools.py         # every tool through the CLI
+python3 -I scripts/test-tools.py         # every tool through the CLI, plus preview start-up times on hour-long videos
 zsh scripts/run-logic-tests.sh           # unit tests (drag state machine, naming, parsers) without an XCTest host
 python3 -I scripts/test-malformed.py     # empty, random and truncated inputs must fail cleanly, never crash or hang
 ```
 
 The app binary also has developer modes used by these scripts:
 `--convert <file> <format> [--options <json>]`, `--tool <tool> <files…> [--options <json>]`,
-`--outputs <file>`, and `--snapshot <view> <out.png> [files…]` for offscreen UI renders.
+`--outputs <file>`, `--snapshot <view> <out.png> [files…]` for offscreen UI renders, and
+`--preview-check <file> [seconds]`, which times how quickly a tool preview starts playing (and plays again after a seek).
 
 `scripts/e2e/DragDriver.swift` performs a real drag with a modifier tap and drops on a petal. It moves the
 mouse and presses keys, so run it only while you're not using the Mac.

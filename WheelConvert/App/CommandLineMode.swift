@@ -1,3 +1,4 @@
+import AVFoundation
 import AppKit
 
 /// `WheelConvert --convert <file> <format>` converts one file and prints the saved paths.
@@ -8,6 +9,10 @@ enum CommandLineMode {
             do {
                 if let i = args.firstIndex(of: "--snapshot") {
                     try await SnapshotMode.run(Array(args[(i + 1)...]))
+                    exit(0)
+                }
+                if let i = args.firstIndex(of: "--preview-check"), i + 1 < args.count {
+                    try await previewCheck(URL(fileURLWithPath: args[i + 1]), seek: i + 2 < args.count ? Double(args[i + 2]) : nil)
                     exit(0)
                 }
                 if let i = args.firstIndex(of: "--outputs"), i + 1 < args.count {
@@ -48,6 +53,38 @@ enum CommandLineMode {
                 FileHandle.standardError.write(Data("ERROR:\(error.localizedDescription)\n".utf8))
                 exit(1)
             }
+        }
+    }
+}
+
+extension CommandLineMode {
+    /// `--preview-check <file> [seconds]`: how long a tool preview takes to start playing, and to play
+    /// again after a seek. Prints `PLAYING:<s>` and `SEEKED:<s>`.
+    @MainActor
+    static func previewCheck(_ url: URL, seek target: Double?) async throws {
+        let preview = MediaPreview(url: url)
+        defer { preview.stop() }
+        let started = Date()
+        await preview.load(video: true)
+        guard let player = preview.player else { throw WheelError(preview.error ?? "No player.") }
+        player.play()
+        try await waitUntil(player, passes: 0.25, preview: preview)
+        print(String(format: "PLAYING:%.2f", Date().timeIntervalSince(started)))
+        guard let target else { return }
+        let seeked = Date()
+        preview.seek(target)
+        player.play()
+        try await waitUntil(player, passes: target + 0.25, preview: preview)
+        print(String(format: "SEEKED:%.2f", Date().timeIntervalSince(seeked)))
+    }
+
+    @MainActor
+    private static func waitUntil(_ player: AVPlayer, passes seconds: Double, preview: MediaPreview) async throws {
+        let deadline = Date().addingTimeInterval(30)
+        while player.currentTime().seconds < seconds {
+            if let error = preview.error { throw WheelError(error) }
+            guard Date() < deadline else { throw WheelError("The preview did not start playing within 30 seconds.") }
+            try await Task.sleep(nanoseconds: 20_000_000)
         }
     }
 }
