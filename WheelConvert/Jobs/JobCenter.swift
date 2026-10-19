@@ -152,6 +152,7 @@ final class JobCenter: ObservableObject {
             job.phase = job.failures.isEmpty ? .finished : .failed
         }
         job.active = [:]
+        if showsUI { RecentResults.add(job.outputs) }
         if !job.outputs.isEmpty && AppSettings.shared.revealResults && showsUI {
             NSWorkspace.shared.activateFileViewerSelecting(job.outputs)
         }

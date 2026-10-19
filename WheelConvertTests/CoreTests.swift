@@ -147,6 +147,29 @@ final class CoreTests: XCTestCase {
         XCTAssertFalse(ConversionSetting.applicable(to: .webp).contains(.pdfImageDPI))
     }
 
+    func testRecentResultsKeepNewestTenThatExist() throws {
+        RecentResults.store = UserDefaults(suiteName: UUID().uuidString)!
+        defer { RecentResults.store = .standard }
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let files = try (0..<12).map { i -> URL in
+            let url = dir.appendingPathComponent("\(i).txt")
+            try Data().write(to: url)
+            return url
+        }
+        RecentResults.add(Array(files[0..<6]))
+        RecentResults.add(Array(files[6..<12]))
+        XCTAssertEqual(RecentResults.urls.map(\.lastPathComponent), (2..<12).reversed().map { "\($0).txt" })
+        RecentResults.add([files[5]])
+        XCTAssertEqual(RecentResults.urls.first, files[5])
+        XCTAssertEqual(RecentResults.urls.count, 10)
+        try FileManager.default.removeItem(at: files[11])
+        XCTAssertFalse(RecentResults.urls.contains(files[11]))
+        RecentResults.clear()
+        XCTAssertTrue(RecentResults.urls.isEmpty)
+    }
+
     func testModeMatchingIsExact() {
         let settings = AppSettings(defaults: UserDefaults(suiteName: UUID().uuidString)!)
         XCTAssertEqual(settings.mode(for: [.shift]), .convert)

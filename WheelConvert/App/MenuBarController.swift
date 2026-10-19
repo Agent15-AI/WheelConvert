@@ -32,6 +32,15 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         hint.isEnabled = false
         menu.addItem(hint)
         menu.addItem(.separator())
+        let recent = RecentResults.urls
+        if !recent.isEmpty {
+            let header = NSMenuItem(title: "Recent Results", action: nil, keyEquivalent: "")
+            header.isEnabled = false
+            menu.addItem(header)
+            for url in recent { menu.addItem(resultItem(url)) }
+            add("Clear Recent Results", #selector(clearRecent))
+            menu.addItem(.separator())
+        }
         add("Getting Started…", #selector(openWelcome))
         if MainActor.assumeIsolated({ FloatController.shared.hasFloats }) { add("Show Floats", #selector(showFloats)) }
         add("Settings…", #selector(openSettings), key: ",")
@@ -45,6 +54,43 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         entry.target = self
         menu.addItem(entry)
     }
+
+    /// A saved result with its file icon and a submenu to reveal, open or trash it.
+    private func resultItem(_ url: URL) -> NSMenuItem {
+        let item = NSMenuItem(title: url.lastPathComponent, action: nil, keyEquivalent: "")
+        item.toolTip = url.path
+        let icon = NSWorkspace.shared.icon(forFile: url.path)
+        icon.size = NSSize(width: 16, height: 16)
+        item.image = icon
+        let submenu = NSMenu()
+        for (title, action) in [("Reveal in Finder", #selector(revealResult(_:))), ("Open", #selector(openResult(_:))), ("Move to Trash", #selector(trashResult(_:)))] {
+            let entry = NSMenuItem(title: title, action: action, keyEquivalent: "")
+            entry.target = self
+            entry.representedObject = url
+            submenu.addItem(entry)
+        }
+        item.submenu = submenu
+        return item
+    }
+
+    @objc private func revealResult(_ sender: NSMenuItem) {
+        guard let url = sender.representedObject as? URL else { return }
+        NSWorkspace.shared.activateFileViewerSelecting([url])
+    }
+
+    @objc private func openResult(_ sender: NSMenuItem) {
+        guard let url = sender.representedObject as? URL else { return }
+        NSWorkspace.shared.open(url)
+    }
+
+    @objc private func trashResult(_ sender: NSMenuItem) {
+        guard let url = sender.representedObject as? URL else { return }
+        NSWorkspace.shared.recycle([url]) { _, error in
+            if error == nil { RecentResults.remove(url) }
+        }
+    }
+
+    @objc private func clearRecent() { RecentResults.clear() }
 
     @objc private func openWelcome() { MainActor.assumeIsolated { WelcomeWindowController.shared.show() } }
     @objc private func openSettings() { MainActor.assumeIsolated { SettingsWindowController.shared.show() } }
