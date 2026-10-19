@@ -58,11 +58,12 @@ final class JobCenter: ObservableObject {
 
     /// Converts each file to the target format. Await `task` on the result to wait for the outputs;
     /// nil when the person cancelled choosing where to save.
+    /// - Parameter options: a preset's options; nil uses Settings → Conversion.
     @discardableResult
-    func convert(_ urls: [URL], to target: FileFormat, canAsk: Bool = true) -> JobState? {
-        let options = AppSettings.shared.options(for: target)
+    func convert(_ urls: [URL], to target: FileFormat, options: ConversionOptions? = nil, title: String? = nil, canAsk: Bool = true) -> JobState? {
+        let options = options ?? AppSettings.shared.options(for: target)
         let hardwareVideo = [.mp4, .mov, .mkv].contains(target) && urls.contains { FileFormat.detect($0)?.category == .video }
-        return run(title: "Converting to \(target.title)", items: urls, parallel: Self.parallelLimit(hardwareVideo: hardwareVideo), canAsk: canAsk) { url, progress in
+        return run(title: title ?? "Converting to \(target.title)", items: urls, parallel: Self.parallelLimit(hardwareVideo: hardwareVideo), canAsk: canAsk) { url, progress in
             try await Converter.convert(url, to: target, options: options, progress: progress)
         }
     }
@@ -119,8 +120,8 @@ final class JobCenter: ObservableObject {
 
     /// One job over the whole selection (merge, join, collage…), saving a single result set.
     @discardableResult
-    func runBatch(title: String, items: [URL], work: @escaping (@escaping (Double) -> Void) async throws -> [URL]) -> JobState? {
-        guard let folder = saveFolder(for: items, canAsk: true) else { return nil }
+    func runBatch(title: String, items: [URL], canAsk: Bool = true, work: @escaping (@escaping (Double) -> Void) async throws -> [URL]) -> JobState? {
+        guard let folder = saveFolder(for: items, canAsk: canAsk) else { return nil }
         let job = JobState(title: title, total: 1)
         let name = items.count == 1 ? items[0].lastPathComponent : "\(items.count) files"
         job.active[0] = (name, 0)

@@ -173,5 +173,47 @@ for name, fixture, seek in PREVIEWS:
     print(f"{'OK  ' if not err else 'FAIL'} {name:28} start {times.get('PLAYING', '-')}s, seek {times.get('SEEKED', '-')}s {err or ''}")
     if err: failures.append((name, err))
 
+# Default presets, run headless through the job queue (--preset).
+def big_fixture(name):
+    """Large inputs the presets act on: a 3000 px photo and a ~35 MB 1080p video."""
+    path = os.path.join(FIX, name)
+    if os.path.exists(path): return path
+    if name == "big.mov":
+        subprocess.run([FFMPEG, "-v", "error", "-y", "-f", "lavfi", "-i", "testsrc2=s=1920x1080:r=30:d=30", "-f", "lavfi", "-i", "sine=d=30",
+                        "-c:v", "h264_videotoolbox", "-b:v", "9M", "-c:a", "aac_at", path], check=True)
+    else:
+        png = os.path.join(FIX, "big.png")
+        if not os.path.exists(png):
+            subprocess.run([FFMPEG, "-v", "error", "-y", "-f", "lavfi", "-i", "testsrc2=s=3000x2000:d=1", "-frames:v", "1", png], check=True)
+        if name == "big.jpg": subprocess.run(["sips", "-s", "format", "jpeg", png, "--out", path], capture_output=True, check=True)
+    return path
+
+PRESET_CASES = [
+    ("preset instagram", "Instagram 1080 px JPG", "big.jpg", "jpg", lambda out: width(out) == 1080),
+    ("preset web", "Web-ready WebP (1600 px)", "big.png", "webp", lambda out: width(out) == 1600),
+    ("preset email", "Email-size MP4 (under 25 MB)", "big.mov", "mp4", lambda out: size(out) <= 24_000_000),
+    ("preset podcast", "Podcast MP3 (128 kbps)", "sample.wav", "mp3", lambda out: abs(int(probe(out)["format"]["bit_rate"]) - 128_000) < 12_000),
+    ("preset print", "PDF pages for print (300 DPI PNG)", "sample.pdf", "png", lambda out: width(out) > 2000),
+]
+
+def width(path):
+    m = re.search(r"pixelWidth: (\d+)", subprocess.run(["sips", "-g", "pixelWidth", path], capture_output=True, text=True).stdout)
+    return int(m.group(1)) if m else 0
+
+for name, preset, fixture, ext, check in PRESET_CASES:
+    if only and not any(o in name for o in only): continue
+    case = os.path.join(WORK, name.replace(" ", "-")); os.makedirs(case)
+    src = os.path.join(case, fixture); shutil.copy2(big_fixture(fixture) if fixture.startswith("big") else os.path.join(FIX, fixture), src)
+    t = time.time()
+    r = subprocess.run([APP, "--preset", preset, src], capture_output=True, text=True, timeout=600)
+    outs = [l[4:] for l in r.stdout.splitlines() if l.startswith("OUT:")]
+    err = None
+    if r.returncode != 0 or not outs: err = (r.stderr.strip().splitlines() or r.stdout.strip().splitlines() or ["no output"])[-1]
+    elif not outs[0].endswith("." + ext): err = f"wrong format {outs[0]}"
+    elif not check(outs[0]): err = f"check failed for {os.path.basename(outs[0])}"
+    elif [f for f in os.listdir(case) if f.startswith(".wheelconvert")]: err = "leftover staging"
+    print(f"{'OK  ' if not err else 'FAIL'} {name:28} {time.time() - t:5.1f}s {os.path.basename(outs[0]) if outs else ''} {err or ''}")
+    if err: failures.append((name, err))
+
 print(f"\n{len(failures)} failures")
 for f in failures: print("  ", f)

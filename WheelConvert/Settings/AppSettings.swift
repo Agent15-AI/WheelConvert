@@ -52,6 +52,15 @@ final class AppSettings: ObservableObject {
                 conversionDefaults[format] = options
             }
         }
+        if let data = defaults.data(forKey: Keys.presets), let stored = try? JSONSerialization.jsonObject(with: data) as? [Any] {
+            // Each preset decodes on its own, filling fields added in later versions from a blank preset.
+            presets = stored.compactMap { item in
+                guard let json = try? JSONSerialization.data(withJSONObject: item) else { return nil }
+                return try? JSONDecoder().decode(Preset.self, from: json, defaults: Preset(name: "", label: ""))
+            }
+        } else {
+            presets = Preset.defaults
+        }
         if let data = defaults.data(forKey: Keys.imageCompression), let value = try? JSONDecoder().decode(ImageCompressionDefaults.self, from: data, defaults: ImageCompressionDefaults()) {
             imageCompression = value
         }
@@ -75,6 +84,7 @@ final class AppSettings: ObservableObject {
         static let conversion = "conversionDefaults"
         static let imageCompression = "imageCompressionDefaults"
         static let videoCompression = "videoCompressionDefaults"
+        static let presets = "presets"
     }
 
     @Published var conversionModifiers: NSEvent.ModifierFlags { didSet { defaults.set(Int(conversionModifiers.rawValue), forKey: Keys.convert) } }
@@ -94,6 +104,9 @@ final class AppSettings: ObservableObject {
     }
     @Published var videoCompression: CompressionStrength = .balanced {
         didSet { defaults.set(try? JSONEncoder().encode(videoCompression), forKey: Keys.videoCompression) }
+    }
+    @Published var presets: [Preset] = [] {
+        didSet { defaults.set(try? JSONEncoder().encode(presets), forKey: Keys.presets) }
     }
 
     func modifiers(for mode: WheelMode) -> NSEvent.ModifierFlags {

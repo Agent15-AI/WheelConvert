@@ -19,7 +19,7 @@ enum Converter {
             }]
         }
         guard let input = FileFormat.detect(source) else { throw WheelError("This file type is not supported.") }
-        guard ConversionMatrix.outputs(for: input).contains(target) else {
+        guard ConversionMatrix.outputs(for: input).contains(target) || Preset.reencodes(input, to: target) else {
             throw WheelError("Conversion from \(input.title) to \(target.title) is unavailable.")
         }
         let base = OutputNaming.baseName(of: source)

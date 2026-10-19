@@ -100,7 +100,7 @@ enum ImageTools {
     }
 
     static func resize(_ image: CGImage, scale: CGFloat) -> CGImage? {
-        let width = max(1, Int(CGFloat(image.width) * scale)), height = max(1, Int(CGFloat(image.height) * scale))
+        let width = max(1, Int((CGFloat(image.width) * scale).rounded())), height = max(1, Int((CGFloat(image.height) * scale).rounded()))
         guard width < image.width || height < image.height,
               let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
                                       space: rgbSpace(of: image), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }

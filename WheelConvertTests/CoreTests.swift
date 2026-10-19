@@ -203,6 +203,29 @@ final class CoreTests: XCTestCase {
         XCTAssertEqual(ToolMemory.load(.compress, variant: "images", default: ToolOptions.Compress()).reduction, 50)
     }
 
+    func testPresetsMatchTheirFiles() throws {
+        let instagram = try XCTUnwrapPreset("Instagram 1080 px JPG"), email = try XCTUnwrapPreset("Email-size MP4 (under 25 MB)")
+        let photo = URL(fileURLWithPath: "/x/a.jpg"), heic = URL(fileURLWithPath: "/x/b.heic"), movie = URL(fileURLWithPath: "/x/c.mov")
+        XCTAssertTrue(instagram.applies(to: [photo, heic]))
+        XCTAssertFalse(instagram.applies(to: [movie]))
+        XCTAssertTrue(email.applies(to: [movie]))
+        XCTAssertFalse(email.applies(to: [photo]))
+        XCTAssertTrue(Preset.reencodes(.jpg, to: .jpg))
+        XCTAssertFalse(Preset.reencodes(.docx, to: .docx))
+        XCTAssertEqual(instagram.conversionOptions.imageMaxWidth, 1080)
+        XCTAssertEqual(email.decoded(ToolOptions.Compress()).videoFormat, .mp4)
+        // A preset saved before a field existed still decodes.
+        let old = try JSONDecoder().decode(Preset.self, from: Data(#"{"name":"Old","label":"OLD","target":"png","options":"{}"}"#.utf8), defaults: Preset(name: "", label: ""))
+        XCTAssertTrue(old.showOnWheel)
+        XCTAssertEqual(old.conversionOptions.pdfImageDPI, 150)
+        XCTAssertEqual(Preset.defaults.map(\.id).count, Set(Preset.defaults.map(\.id)).count)
+    }
+
+    private func XCTUnwrapPreset(_ name: String) throws -> Preset {
+        guard let preset = Preset.named(name, in: []) else { throw WheelError("missing preset \(name)") }
+        return preset
+    }
+
     func testModeMatchingIsExact() {
         let settings = AppSettings(defaults: UserDefaults(suiteName: UUID().uuidString)!)
         XCTAssertEqual(settings.mode(for: [.shift]), .convert)

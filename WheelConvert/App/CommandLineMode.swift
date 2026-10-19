@@ -30,6 +30,16 @@ enum CommandLineMode {
                     print("PHASE:\(job.phase)")
                     exit(0)
                 }
+                if let i = args.firstIndex(of: "--preset"), i + 2 < args.count {
+                    guard let preset = Preset.named(args[i + 1], in: AppSettings.shared.presets) else { throw WheelError("Unknown preset \(args[i + 1])") }
+                    let files = args[(i + 2)...].map { URL(fileURLWithPath: $0).standardizedFileURL }
+                    guard preset.applies(to: files) else { throw WheelError("“\(preset.name)” doesn’t apply to these files.") }
+                    guard let job = preset.run(on: files) else { throw WheelError("The preset did not start.") }
+                    await job.task?.value
+                    job.outputs.forEach { print("OUT:\($0.path)") }
+                    job.failures.forEach { print("FAIL:\($0.name)\t\($0.message)") }
+                    exit(job.failures.isEmpty ? 0 : 1)
+                }
                 if let i = args.firstIndex(of: "--outputs"), i + 1 < args.count {
                     let url = URL(fileURLWithPath: args[i + 1])
                     let formats = FileFormat.detect(url).map { ConversionMatrix.outputs(for: $0) } ?? []

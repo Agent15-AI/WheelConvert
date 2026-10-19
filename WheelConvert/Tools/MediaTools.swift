@@ -91,7 +91,8 @@ enum MediaTools {
         case .percentage: original * Int64(100 - min(99, max(1, options.reduction))) / 100
         }
         if let target, target >= original { throw WheelError("Target size cannot exceed the original file size.") }
-        let container: FileFormat = [.mp4, .mov, .mkv, .webm, .gif].contains(format) ? format : .mp4
+        let container: FileFormat = options.videoFormat.flatMap { [.mp4, .mov, .mkv, .webm].contains($0) && format != .gif ? $0 : nil }
+            ?? ([.mp4, .mov, .mkv, .webm, .gif].contains(format) ? format : .mp4)
         let destination = output(source, suffix: "Compressed", format: container)
 
         if container == .gif {

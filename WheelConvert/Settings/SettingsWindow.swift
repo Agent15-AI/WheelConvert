@@ -29,6 +29,7 @@ struct SettingsView: View {
             GeneralSettings().tabItem { Label("General", systemImage: "gearshape") }
             ConversionSettings().tabItem { Label("Conversion", systemImage: "arrow.triangle.2.circlepath") }
             CompressionSettings().tabItem { Label("Compression", systemImage: "arrow.down.right.and.arrow.up.left") }
+            PresetSettings().tabItem { Label("Presets", systemImage: "wand.and.stars") }
             FormatCompatibility().tabItem { Label("Formats", systemImage: "tablecells") }
             AboutSettings().tabItem { Label("About", systemImage: "info.circle") }
         }
@@ -244,7 +245,7 @@ struct FormatOptionsEditor: View {
                 if applicable.isEmpty {
                     Text("This output format has no adjustable conversion defaults.").foregroundStyle(.secondary)
                 }
-                ForEach(applicable, id: \.self) { setting in row(setting) }
+                ConversionOptionRows(format: format, options: options)
             }
             if !applicable.isEmpty {
                 Button("Restore Defaults") { settings.setOptions(nil, for: format) }.disabled(settings.conversionDefaults[format] == nil)
@@ -252,45 +253,218 @@ struct FormatOptionsEditor: View {
         }
         .formStyle(.grouped)
     }
+}
+
+/// The controls for one output format's options, in Settings → Conversion and the preset editor.
+struct ConversionOptionRows: View {
+    let format: FileFormat
+    @Binding var options: ConversionOptions
+
+    var body: some View {
+        ForEach(ConversionSetting.applicable(to: format), id: \.self) { setting in row(setting) }
+    }
 
     @ViewBuilder private func row(_ setting: ConversionSetting) -> some View {
         switch setting {
         case .quality:
-            Picker("Quality", selection: options.quality) { ForEach(ConversionOptions.Quality.allCases) { Text($0.title).tag($0) } }.pickerStyle(.segmented)
+            Picker("Quality", selection: $options.quality) { ForEach(ConversionOptions.Quality.allCases) { Text($0.title).tag($0) } }.pickerStyle(.segmented)
         case .preserveMetadata:
-            Toggle("Preserve metadata", isOn: options.preserveMetadata)
+            Toggle("Preserve metadata", isOn: $options.preserveMetadata)
         case .videoMaxHeight:
-            Picker("Maximum video height", selection: options.videoMaxHeight) {
+            Picker("Maximum video height", selection: $options.videoMaxHeight) {
                 ForEach(ConversionSetting.videoHeights, id: \.self) { Text($0 == 0 ? "Match Source" : "\($0)p").tag($0) }
             }
         case .audioBitrate:
-            Picker("Audio bitrate", selection: options.audioBitrate) { ForEach(ConversionSetting.bitrates, id: \.self) { Text("\($0) kbps").tag($0) } }
+            Picker("Audio bitrate", selection: $options.audioBitrate) { ForEach(ConversionSetting.bitrates, id: \.self) { Text("\($0) kbps").tag($0) } }
         case .audioSampleDepth:
-            Picker("Sample depth", selection: options.audioSampleDepth) {
+            Picker("Sample depth", selection: $options.audioSampleDepth) {
                 ForEach(ConversionOptions.SampleDepth.allCases.filter { format != .flac || ![.bit32, .float32].contains($0) }) { Text($0.title).tag($0) }
             }
         case .gifFrameRate:
-            Picker("Frame rate", selection: options.gifFrameRate) { ForEach(ConversionSetting.gifFrameRates, id: \.self) { Text("\($0) fps").tag($0) } }
+            Picker("Frame rate", selection: $options.gifFrameRate) { ForEach(ConversionSetting.gifFrameRates, id: \.self) { Text("\($0) fps").tag($0) } }
         case .gifMaxWidth:
-            Picker("Maximum width", selection: options.gifMaxWidth) { ForEach(ConversionSetting.gifWidths, id: \.self) { Text($0 == 0 ? "Match Source" : "\($0) px").tag($0) } }
+            Picker("Maximum width", selection: $options.gifMaxWidth) { ForEach(ConversionSetting.gifWidths, id: \.self) { Text($0 == 0 ? "Match Source" : "\($0) px").tag($0) } }
         case .compression:
-            Picker("Compression", selection: options.compression) { ForEach(ConversionOptions.ArchiveCompression.allCases) { Text($0.title).tag($0) } }.pickerStyle(.segmented)
+            Picker("Compression", selection: $options.compression) { ForEach(ConversionOptions.ArchiveCompression.allCases) { Text($0.title).tag($0) } }.pickerStyle(.segmented)
         case .epubLayout:
             VStack(alignment: .leading) {
-                Picker("From PDF", selection: options.epubLayout) { ForEach(ConversionOptions.EPUBLayout.allCases) { Text($0.title).tag($0) } }
-                Text(settings.options(for: format).epubLayout.detail).font(.callout).foregroundStyle(.secondary)
+                Picker("From PDF", selection: $options.epubLayout) { ForEach(ConversionOptions.EPUBLayout.allCases) { Text($0.title).tag($0) } }
+                Text(options.epubLayout.detail).font(.callout).foregroundStyle(.secondary)
             }
         case .officeLayout:
             VStack(alignment: .leading) {
-                Picker("From PDF", selection: options.officeLayout) { ForEach(ConversionOptions.OfficeLayout.allCases) { Text($0.title).tag($0) } }
-                Text(settings.options(for: format).officeLayout.detail).font(.callout).foregroundStyle(.secondary)
+                Picker("From PDF", selection: $options.officeLayout) { ForEach(ConversionOptions.OfficeLayout.allCases) { Text($0.title).tag($0) } }
+                Text(options.officeLayout.detail).font(.callout).foregroundStyle(.secondary)
             }
         case .pdfImageDPI:
             VStack(alignment: .leading) {
-                Picker("From PDF", selection: options.pdfImageDPI) { ForEach(ConversionSetting.pdfImageDPIs, id: \.self) { Text("\($0) DPI").tag($0) } }
+                Picker("From PDF", selection: $options.pdfImageDPI) { ForEach(ConversionSetting.pdfImageDPIs, id: \.self) { Text("\($0) DPI").tag($0) } }
                     .pickerStyle(.segmented)
                 Text("Resolution of PDF pages saved as images. 150 DPI suits screens; 300 DPI suits printing.").font(.callout).foregroundStyle(.secondary)
             }
+        case .imageMaxWidth:
+            Picker("Maximum width", selection: $options.imageMaxWidth) {
+                ForEach(ConversionSetting.imageWidths, id: \.self) { Text($0 == 0 ? "Match Source" : "\($0) px").tag($0) }
+            }
+        }
+    }
+}
+
+// MARK: - Presets
+
+struct PresetSettings: View {
+    @ObservedObject private var settings = AppSettings.shared
+    @State private var selection: Preset.ID?
+
+    var body: some View {
+        HSplitView {
+            VStack(spacing: 0) {
+                List(selection: $selection) {
+                    ForEach(settings.presets) { preset in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(preset.name).lineLimit(1)
+                            Text(preset.summary).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                        }
+                        .tag(preset.id)
+                    }
+                    .onMove { settings.presets.move(fromOffsets: $0, toOffset: $1) }
+                }
+                Divider()
+                HStack(spacing: 8) {
+                    Menu {
+                        Button("Conversion Preset") { add(Preset(name: "New Preset", label: "PRESET", target: .jpg)) }
+                        ForEach(Preset.tools) { tool in
+                            Button("\(tool.title) Preset") { add(Self.blank(tool)) }
+                        }
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                    .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+                    .help("Add a preset").accessibilityLabel("Add preset")
+                    Button { remove() } label: { Image(systemName: "minus") }
+                        .disabled(selection == nil).help("Delete the selected preset").accessibilityLabel("Delete preset")
+                    Button { duplicate() } label: { Image(systemName: "plus.square.on.square") }
+                        .disabled(selection == nil).help("Duplicate the selected preset").accessibilityLabel("Duplicate preset")
+                    Spacer()
+                    Button("Restore Defaults") {
+                        settings.presets = Preset.defaults + settings.presets.filter { preset in !Preset.defaults.contains { $0.id == preset.id } }
+                    }
+                    .help("Bring back the presets WheelConvert comes with, as they were. Your own presets stay.")
+                }
+                .buttonStyle(.borderless)
+                .padding(8)
+            }
+            .frame(minWidth: 230, maxWidth: 290)
+            if let index = settings.presets.firstIndex(where: { $0.id == selection }) {
+                PresetEditor(preset: $settings.presets[index]).frame(minWidth: 340)
+            } else {
+                Text("Select a preset, or click + to add one. Presets appear on the Convert wheel for the files they fit.")
+                    .multilineTextAlignment(.center).foregroundStyle(.secondary).padding(30)
+                    .frame(minWidth: 340, maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .onAppear { if selection == nil { selection = settings.presets.first?.id } }
+    }
+
+    static func blank(_ tool: ToolKind) -> Preset {
+        var preset = Preset(name: tool.title, label: tool.wheelLabel, tool: tool)
+        switch tool {
+        case .removeMetadata: preset.encode(ToolOptions.Metadata(removeAll: true))
+        case .normalizeAudio: preset.encode(ToolOptions.Normalize())
+        default: preset.encode(ToolOptions.Compress())
+        }
+        return preset
+    }
+
+    private func add(_ preset: Preset) {
+        settings.presets.append(preset)
+        selection = preset.id
+    }
+
+    private func remove() {
+        guard let index = settings.presets.firstIndex(where: { $0.id == selection }) else { return }
+        settings.presets.remove(at: index)
+        selection = settings.presets[safe: min(index, settings.presets.count - 1)]?.id
+    }
+
+    private func duplicate() {
+        guard let index = settings.presets.firstIndex(where: { $0.id == selection }) else { return }
+        var copy = settings.presets[index]
+        copy.id = UUID()
+        copy.name += " Copy"
+        settings.presets.insert(copy, at: index + 1)
+        selection = copy.id
+    }
+}
+
+struct PresetEditor: View {
+    @Binding var preset: Preset
+
+    var body: some View {
+        Form {
+            Section {
+                TextField("Name", text: $preset.name)
+                TextField("Wheel label", text: Binding(get: { preset.label }, set: { preset.label = String($0.prefix(12)) }))
+                Toggle("Show on the Convert wheel", isOn: $preset.showOnWheel)
+                Picker("Use for", selection: $preset.category) {
+                    Text("Any File It Fits").tag(FormatCategory?.none)
+                    ForEach(FormatCategory.allCases) { Text($0.title).tag(FormatCategory?.some($0)) }
+                }
+            }
+            if let target = preset.target {
+                Section {
+                    Picker("Convert to", selection: Binding(get: { target }, set: { preset.target = $0 })) {
+                        ForEach(FileFormat.allCases.filter { !$0.isInputOnly }) { Text($0.title).tag($0) }
+                    }
+                    ConversionOptionRows(format: target, options: Binding(get: { preset.conversionOptions }, set: { preset.conversionOptions = $0 }))
+                }
+            } else if let tool = preset.tool {
+                Section(tool.title) { toolRows(tool) }
+            }
+        }
+        .formStyle(.grouped)
+    }
+
+    @ViewBuilder private func toolRows(_ tool: ToolKind) -> some View {
+        switch tool {
+        case .compress:
+            let options = Binding(get: { preset.decoded(ToolOptions.Compress()) }, set: { preset.encode($0) })
+            Picker("Compression", selection: options.mode) { ForEach(ToolOptions.Compress.Mode.allCases) { Text($0.title).tag($0) } }
+                .pickerStyle(.segmented)
+            switch options.wrappedValue.mode {
+            case .preset:
+                Picker("Strength", selection: options.strength) { ForEach(CompressionStrength.allCases) { Text($0.title).tag($0) } }.pickerStyle(.segmented)
+            case .fileSize:
+                LabeledContent("Target size") {
+                    HStack {
+                        TextField("Target size", value: Binding(get: { Double(options.wrappedValue.targetBytes) / 1_000_000 }, set: { options.wrappedValue.targetBytes = Int64(max(0.001, $0) * 1_000_000) }),
+                                  format: .number.precision(.fractionLength(0...2)))
+                            .frame(width: 80).labelsHidden()
+                        Text("MB")
+                    }
+                }
+            case .percentage:
+                LabeledSlider(title: "Reduce by", value: Binding(get: { Double(options.wrappedValue.reduction) }, set: { options.wrappedValue.reduction = Int($0) }),
+                              range: 1...99, step: 1, format: { "\(Int($0))%" })
+            }
+            Picker("Images", selection: options.maxDimension) {
+                Text("Keep original dimensions").tag(0)
+                ForEach([4096, 3840, 2560, 1920, 1600, 1280, 1024, 800], id: \.self) { Text("\($0) px longest edge").tag($0) }
+            }
+            Picker("Save video as", selection: options.videoFormat) {
+                Text("Same Format").tag(FileFormat?.none)
+                ForEach([FileFormat.mp4, .mov, .mkv, .webm]) { Text($0.title).tag(FileFormat?.some($0)) }
+            }
+        case .normalizeAudio:
+            let options = Binding(get: { preset.decoded(ToolOptions.Normalize()) }, set: { preset.encode($0) })
+            Picker("Loudness", selection: options.targetLoudness) {
+                Text("Podcast & voice (−16 LUFS)").tag(-16.0)
+                Text("Streaming music (−14 LUFS)").tag(-14.0)
+                Text("Broadcast (−23 LUFS)").tag(-23.0)
+            }
+        default:
+            Text("Removes camera, location, author and software details. Orientation and color profile are kept.")
+                .font(.callout).foregroundStyle(.secondary)
         }
     }
 }

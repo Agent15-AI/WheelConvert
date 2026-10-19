@@ -20,7 +20,8 @@ struct LoadedImage {
 enum ImageConverter {
     static func convert(_ source: URL, from input: FileFormat, to target: FileFormat, options: ConversionOptions,
                         destination: URL) async throws {
-        let image = input == .svg ? try await SVGRenderer.rasterize(source) : try load(source)
+        var image = input == .svg ? try await SVGRenderer.rasterize(source) : try load(source)
+        if options.imageMaxWidth > 0, target != .pdf { image = narrowed(image, to: options.imageMaxWidth) }
         if target == .pdf {
             if input == .svg {
                 try await SVGRenderer.pdf(source, to: destination)
@@ -30,6 +31,19 @@ enum ImageConverter {
             return
         }
         try write(image, as: target, quality: options.quality, keepMetadata: options.preserveMetadata, to: destination)
+    }
+
+    /// Scales the image down to `width` pixels wide (never up), keeping its metadata in step.
+    static func narrowed(_ image: LoadedImage, to width: Int) -> LoadedImage {
+        let cg = image.cgImage
+        guard cg.width > width, let resized = ImageTools.resize(cg, scale: CGFloat(width) / CGFloat(cg.width)) else { return image }
+        var metadata = image.metadata
+        if let original = image.metadata, let mutable = CGImageMetadataCreateMutableCopy(original) {
+            CGImageMetadataSetValueMatchingImageProperty(mutable, kCGImagePropertyExifDictionary, kCGImagePropertyExifPixelXDimension, resized.width as CFNumber)
+            CGImageMetadataSetValueMatchingImageProperty(mutable, kCGImagePropertyExifDictionary, kCGImagePropertyExifPixelYDimension, resized.height as CFNumber)
+            metadata = mutable
+        }
+        return LoadedImage(cgImage: resized, metadata: metadata, dpi: image.dpi)
     }
 
     static func quality(_ q: ConversionOptions.Quality) -> Double {

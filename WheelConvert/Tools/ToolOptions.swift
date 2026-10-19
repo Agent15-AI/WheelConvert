@@ -17,6 +17,8 @@ enum ToolOptions {
         var reduction = 50
         /// Longest edge for images; 0 keeps the size.
         var maxDimension = 0
+        /// Container for compressed video (MP4, MOV, MKV or WebM); nil keeps the source's when it can.
+        var videoFormat: FileFormat?
     }
 
     struct Metadata: Codable, Equatable {

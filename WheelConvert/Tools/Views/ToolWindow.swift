@@ -82,7 +82,7 @@ struct ToolRoot: View {
 
     /// Closes the window once the job starts; it stays open if choosing where to save is cancelled.
     private func submit(_ request: ToolRequest, urls override: [URL]? = nil) {
-        if ToolRunner.submit(tool, request: request, urls: override ?? urls) { close() }
+        if ToolRunner.submit(tool, request: request, urls: override ?? urls) != nil { close() }
     }
 
     @ViewBuilder private var content: some View {

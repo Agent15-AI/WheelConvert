@@ -125,20 +125,20 @@ enum ToolRunner {
     }
 
     /// Queues a configured tool as a job with a progress panel.
-    /// - Returns: false when the person cancelled choosing where to save.
+    /// - Returns: The job, or nil when the person cancelled choosing where to save.
     @MainActor @discardableResult
-    static func submit(_ tool: ToolKind, request: ToolRequest, urls: [URL]) -> Bool {
+    static func submit(_ tool: ToolKind, request: ToolRequest, urls: [URL], title: String? = nil, canAsk: Bool = true) -> JobState? {
+        let title = title ?? tool.progressTitle
         if request.isBatch {
-            return JobCenter.shared.runBatch(title: tool.progressTitle, items: urls) { progress in
+            return JobCenter.shared.runBatch(title: title, items: urls, canAsk: canAsk) { progress in
                 try await runBatch(request, on: urls, progress: progress)
-            } != nil
-        } else {
-            // Muting and metadata edits copy the streams; WebM and GIF are encoded in software.
-            let hardwareVideo = ![.muteVideo, .removeMetadata].contains(tool)
-                && urls.contains { FileFormat.detect($0).map { $0.category == .video && $0 != .webm && $0 != .gif } ?? false }
-            return JobCenter.shared.run(title: tool.progressTitle, items: urls, parallel: JobCenter.parallelLimit(hardwareVideo: hardwareVideo)) { url, progress in
-                try await run(request, on: url, progress: progress)
-            } != nil
+            }
+        }
+        // Muting and metadata edits copy the streams; WebM and GIF are encoded in software.
+        let hardwareVideo = ![.muteVideo, .removeMetadata].contains(tool)
+            && urls.contains { FileFormat.detect($0).map { $0.category == .video && $0 != .webm && $0 != .gif } ?? false }
+        return JobCenter.shared.run(title: title, items: urls, parallel: JobCenter.parallelLimit(hardwareVideo: hardwareVideo), canAsk: canAsk) { url, progress in
+            try await run(request, on: url, progress: progress)
         }
     }
 }

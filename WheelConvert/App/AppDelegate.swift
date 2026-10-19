@@ -50,6 +50,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ToolLauncher.open(tool, urls: urls)
         case .fileAction(let action):
             FileActions.perform(action, urls: urls)
+        case .preset(let preset):
+            preset.run(on: urls)
         }
     }
 
