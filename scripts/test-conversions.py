@@ -106,6 +106,48 @@ for name in fixtures:
         results.append((name, fmt, status, elapsed))
         print(f"{status:4} {name} -> {fmt} ({elapsed:.1f}s) {[os.path.basename(o) for o in outs]}")
 
+# Batches run several files at once through the job queue: order, failures and cancel must hold.
+def batch(case, fmt, names, extra=()):
+    d = os.path.join(WORK, case); os.makedirs(d)
+    paths = []
+    for name in names:
+        dst = os.path.join(d, name)
+        if name.startswith("broken"):
+            with open(dst, "wb") as f: f.write(os.urandom(5000))
+        else:
+            shutil.copy2(os.path.join(FIXTURES, name.split("@")[-1]), dst.replace("@", ""))
+            dst = dst.replace("@", "")
+        paths.append(dst)
+    r = run([APP, "--batch", fmt] + paths + list(extra), timeout=600)
+    lines = r.stdout.splitlines()
+    outs = [l[4:] for l in lines if l.startswith("OUT:")]
+    fails = [l[5:].split("\t")[0] for l in lines if l.startswith("FAIL:")]
+    phase = next((l[6:] for l in lines if l.startswith("PHASE:")), None)
+    leftovers = [f for f in os.listdir(d) if f.startswith(".wheelconvert")]
+    return d, paths, outs, fails, phase, leftovers
+
+if not filters or any("batch" in f for f in filters):
+    names = ["sample.jpg", "broken.png", "sample.png", "sample.heic", "sample.tiff", "sample.bmp", "sample.webp", "copy@sample.jpg"]
+    d, paths, outs, fails, phase, leftovers = batch("batch-images", "avif", names)
+    good = [p for p in paths if "broken" not in p]
+    err = None
+    if len(outs) != len(good) or len(set(outs)) != len(outs): err = f"outputs {outs}"
+    elif fails != ["broken.png"] or phase != "failed": err = f"failures {fails} phase {phase}"
+    elif leftovers: err = f"leftover staging {leftovers}"
+    elif any(validate(o, "avif") for o in outs): err = "invalid output"
+    elif [os.path.basename(o).split(" ")[0].split(".")[0] for o in outs] != [os.path.basename(p).split(".")[0] for p in good]: err = f"order {outs}"
+    results.append(("batch", "avif", "OK" if not err else "FAIL " + err, 0)); print(f"{'OK  ' if not err else 'FAIL'} parallel batch with a broken file {err or ''}")
+    clip = os.path.join(FIXTURES, "batch-clip.webm")
+    if not os.path.exists(clip):
+        run([os.path.join(ROOT, "Vendor/build/bin/ffmpeg"), "-v", "error", "-f", "lavfi", "-i", "testsrc2=s=1280x720:r=30:d=40", "-f", "lavfi", "-i", "sine=d=40",
+             "-c:v", "libvpx-vp9", "-deadline", "realtime", "-cpu-used", "8", "-b:v", "2M", "-c:a", "libopus", clip])
+    d, paths, outs, fails, phase, leftovers = batch("batch-cancel", "avi", [f"c{i}@batch-clip.webm" for i in range(5)], ["--cancel-after", "1.5"])
+    err = None
+    if phase != "cancelled": err = f"phase {phase}"
+    elif leftovers: err = f"leftover staging {leftovers}"
+    elif sorted(os.listdir(d)) != sorted([os.path.basename(p) for p in paths] + [os.path.basename(o) for o in outs]): err = f"stray files {os.listdir(d)}"
+    results.append(("batch", "cancel", "OK" if not err else "FAIL " + err, 0)); print(f"{'OK  ' if not err else 'FAIL'} cancelled parallel batch {err or ''}")
+
 ok = sum(1 for r in results if r[2] == "OK")
 print(f"\n{ok}/{len(results)} conversions passed")
 for r in results:

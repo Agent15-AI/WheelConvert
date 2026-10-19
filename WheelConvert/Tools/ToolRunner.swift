@@ -132,7 +132,10 @@ enum ToolRunner {
                 try await runBatch(request, on: urls, progress: progress)
             }
         } else {
-            JobCenter.shared.run(title: tool.progressTitle, items: urls) { url, progress in
+            // Muting and metadata edits copy the streams; WebM and GIF are encoded in software.
+            let hardwareVideo = ![.muteVideo, .removeMetadata].contains(tool)
+                && urls.contains { FileFormat.detect($0).map { $0.category == .video && $0 != .webm && $0 != .gif } ?? false }
+            JobCenter.shared.run(title: tool.progressTitle, items: urls, parallel: JobCenter.parallelLimit(hardwareVideo: hardwareVideo)) { url, progress in
                 try await run(request, on: url, progress: progress)
             }
         }

@@ -35,6 +35,49 @@ final class CoreTests: XCTestCase {
         XCTAssertEqual(OutputNaming.baseName(of: URL(fileURLWithPath: "/x/archive.tar.gz")), "archive")
     }
 
+    func testPlacingInParallelNeverOverwrites() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        // A broken symlink holds the plain name; fileExists can't see it, the exclusive move can.
+        try FileManager.default.createSymbolicLink(atPath: dir.appendingPathComponent("photo.png").path, withDestinationPath: "/nonexistent/x")
+        let sources = try (0..<16).map { i -> URL in
+            let url = dir.appendingPathComponent(".wheelconvert-\(i)")
+            try Data("\(i)".utf8).write(to: url)
+            return url
+        }
+        var placed = [URL?](repeating: nil, count: sources.count)
+        let lock = NSLock()
+        DispatchQueue.concurrentPerform(iterations: sources.count) { i in
+            let url = try? OutputNaming.place(sources[i], in: dir, base: "photo", extension: "png")
+            lock.withLock { placed[i] = url }
+        }
+        XCTAssertEqual(Set(placed.compactMap { $0?.lastPathComponent }).count, 16)
+        XCTAssertFalse(placed.contains { $0?.lastPathComponent == "photo.png" })
+        for (i, url) in placed.enumerated() {
+            XCTAssertEqual(url.flatMap { try? String(contentsOf: $0, encoding: .utf8) }, "\(i)")
+        }
+    }
+
+    func testJobStatusCountsParallelItems() {
+        MainActor.assumeIsolated { checkJobStatus() }
+    }
+
+    @MainActor
+    private func checkJobStatus() {
+        let job = JobState(title: "Converting", total: 4)
+        job.completed = 1
+        job.active = [2: ("c.mov", 0.25), 1: ("b.mov", 0.5)]
+        XCTAssertEqual(job.statusText, "1 of 4 done — b.mov, c.mov")
+        XCTAssertEqual(job.overallProgress, 1.75 / 4, accuracy: 0.0001)
+        job.report(1, 0.2)
+        XCTAssertEqual(job.active[1]?.progress ?? 0, 0.5, accuracy: 0.0001)
+        job.report(3, 0.9)
+        XCTAssertNil(job.active[3]?.progress)
+        XCTAssertEqual(JobCenter.parallelLimit(hardwareVideo: true), 1)
+        XCTAssertTrue((2...4).contains(JobCenter.parallelLimit(hardwareVideo: false)))
+    }
+
     func testSubtitleRoundTrip() {
         let cues = SubtitleConverter.parseSRT("1\n00:00:01,000 --> 00:00:02,500\nHello\n\n2\n01:02:03,004 --> 01:02:04,000\nBye\n")
         XCTAssertEqual(cues.count, 2)

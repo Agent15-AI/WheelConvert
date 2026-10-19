@@ -203,13 +203,9 @@ enum ArchiveConverter {
         if contents.count == 1, let only = contents.first {
             let ext = only.pathExtension
             let base = ext.isEmpty ? only.lastPathComponent : String(only.lastPathComponent.dropLast(ext.count + 1))
-            let target = OutputNaming.unique(in: staging.directory, base: base, extension: ext.isEmpty ? nil : ext)
-            try FileManager.default.moveItem(at: only, to: target)
-            return target
+            return try OutputNaming.place(only, in: staging.directory, base: base, extension: ext.isEmpty ? nil : ext)
         }
-        let target = OutputNaming.unique(in: staging.directory, base: OutputNaming.baseName(of: archive), extension: nil)
-        try FileManager.default.moveItem(at: folder, to: target)
-        return target
+        return try OutputNaming.place(folder, in: staging.directory, base: OutputNaming.baseName(of: archive), extension: nil)
     }
 
     static func failure(_ stderr: String) -> WheelError {

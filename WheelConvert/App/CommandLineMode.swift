@@ -15,6 +15,21 @@ enum CommandLineMode {
                     try await previewCheck(URL(fileURLWithPath: args[i + 1]), seek: i + 2 < args.count ? Double(args[i + 2]) : nil)
                     exit(0)
                 }
+                if let i = args.firstIndex(of: "--batch"), i + 2 < args.count {
+                    guard let format = FileFormat(rawValue: args[i + 1]) else { throw WheelError("Unknown format \(args[i + 1])") }
+                    let end = args.firstIndex(of: "--cancel-after") ?? args.count
+                    let files = args[(i + 2)..<end].map { URL(fileURLWithPath: $0).standardizedFileURL }
+                    let job = JobCenter.shared.convert(files, to: format)
+                    if end < args.count, let delay = Double(args[end + 1]) {
+                        try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                        job.cancel()
+                    }
+                    await job.task?.value
+                    job.outputs.forEach { print("OUT:\($0.path)") }
+                    job.failures.forEach { print("FAIL:\($0.name)\t\($0.message)") }
+                    print("PHASE:\(job.phase)")
+                    exit(0)
+                }
                 if let i = args.firstIndex(of: "--outputs"), i + 1 < args.count {
                     let url = URL(fileURLWithPath: args[i + 1])
                     let formats = FileFormat.detect(url).map { ConversionMatrix.outputs(for: $0) } ?? []

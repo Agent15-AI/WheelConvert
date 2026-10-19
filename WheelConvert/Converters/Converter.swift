@@ -67,25 +67,15 @@ struct Staging {
             let name = file.lastPathComponent
             let ext = name.lowercased().hasSuffix(".tar.gz") ? "tar.gz" : file.pathExtension
             let base = ext.isEmpty ? name : String(name.dropLast(ext.count + 1))
-            var target = OutputNaming.unique(in: directory, base: base, extension: ext.isEmpty ? nil : ext)
-            while true {
-                do {
-                    try FileManager.default.moveItem(at: file, to: target)
-                    return target
-                } catch CocoaError.fileWriteFileExists {
-                    target = OutputNaming.unique(in: directory, base: base, extension: ext.isEmpty ? nil : ext)
-                }
-            }
+            return try OutputNaming.place(file, in: directory, base: base, extension: ext.isEmpty ? nil : ext)
         }
         // Several results: the staging folder itself becomes the visible folder.
-        let folder = OutputNaming.unique(in: directory, base: OutputNaming.baseName(of: source), extension: nil)
         let inner = url.appendingPathComponent("__results", isDirectory: true)
         try FileManager.default.createDirectory(at: inner, withIntermediateDirectories: true)
         for file in existing where file.deletingLastPathComponent().standardizedFileURL != inner.standardizedFileURL {
             try FileManager.default.moveItem(at: file, to: inner.appendingPathComponent(file.lastPathComponent))
         }
-        try FileManager.default.moveItem(at: inner, to: folder)
-        return folder
+        return try OutputNaming.place(inner, in: directory, base: OutputNaming.baseName(of: source), extension: nil)
     }
 }
 

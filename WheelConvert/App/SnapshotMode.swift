@@ -35,9 +35,8 @@ enum SnapshotMode {
             view = NSHostingView(rootView: WelcomeView { })
         } else if what == "progress" {
             let job = JobState(title: "Converting to PNG", total: 3)
-            job.currentName = "holiday.heic"
-            job.currentIndex = 1
-            job.itemProgress = 0.4
+            job.completed = 1
+            job.active = [1: ("holiday.heic", 0.4), 2: ("beach.heic", 0.7)]
             size = NSSize(width: 340, height: 92)
             view = NSHostingView(rootView: ProgressPanelView(job: job, close: {}))
         } else if what.hasPrefix("tool:"), let tool = ToolKind(rawValue: String(what.dropFirst(5))) {

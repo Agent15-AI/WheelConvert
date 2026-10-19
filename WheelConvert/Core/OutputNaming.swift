@@ -35,12 +35,29 @@ enum OutputNaming {
         return unique(in: Publisher.destinationDirectory(for: source), base: "\(baseName(of: source)) \(suffix)", extension: ext ?? keep)
     }
 
-    /// A new folder beside the source for multi-file results.
-    static func folder(for source: URL, suffix: String? = nil) throws -> URL {
-        let base = suffix.map { "\(baseName(of: source)) \($0)" } ?? baseName(of: source)
-        let url = unique(in: Publisher.destinationDirectory(for: source), base: base, extension: nil)
-        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: false)
-        return url
+    /// Moves `item` (a file or folder) to `directory/base.ext`, or the first free numbered name. The
+    /// move itself refuses to replace anything, so jobs running side by side never take the same name.
+    static func place(_ item: URL, in directory: URL, base: String, extension ext: String?) throws -> URL {
+        // Names found taken by the move itself, e.g. a broken symlink that fileExists doesn't see.
+        var taken: Set<String> = []
+        while true {
+            let target = unique(in: directory, base: base, extension: ext, reserved: taken)
+            if renamex_np(item.path, target.path, UInt32(RENAME_EXCL)) == 0 { return target }
+            switch errno {
+            case EEXIST:
+                taken.insert(target.path)
+            case ENOTSUP, EINVAL:
+                // Volumes without exclusive rename (some network shares): check, then move.
+                do {
+                    try FileManager.default.moveItem(at: item, to: target)
+                    return target
+                } catch CocoaError.fileWriteFileExists {
+                    taken.insert(target.path)
+                }
+            default:
+                throw WheelError("WheelConvert can’t save to “\(directory.lastPathComponent)”.")
+            }
+        }
     }
 
     /// Path separators and NULs can't appear in a file name.
@@ -66,16 +83,8 @@ enum AtomicOutput {
             guard FileManager.default.fileExists(atPath: temp.path) else {
                 throw WheelError("The converter finished without creating an output file.")
             }
-            var final = destination
-            while true {
-                do {
-                    try FileManager.default.moveItem(at: temp, to: final)
-                    return final
-                } catch CocoaError.fileWriteFileExists {
-                    let ext = final.lastPathComponent.lowercased().hasSuffix(".tar.gz") ? "tar.gz" : final.pathExtension
-                    final = OutputNaming.unique(in: directory, base: OutputNaming.baseName(of: destination), extension: ext.isEmpty ? nil : ext)
-                }
-            }
+            let ext = destination.lastPathComponent.lowercased().hasSuffix(".tar.gz") ? "tar.gz" : destination.pathExtension
+            return try OutputNaming.place(temp, in: directory, base: OutputNaming.baseName(of: destination), extension: ext.isEmpty ? nil : ext)
         } catch {
             try? FileManager.default.removeItem(at: temp)
             throw error
