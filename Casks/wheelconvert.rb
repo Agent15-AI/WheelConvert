@@ -1,6 +1,6 @@
 cask "wheelconvert" do
-  version "1.0.0"
-  sha256 "cc5aeee191ba31d16748bed01c35eca1c8b8230c58cac46bbcd49dde6b0b74db"
+  version "1.1.0"
+  sha256 "2f86ee595ef1d6bff6993eae7ae6b0739611733337b05fe2cd5d7fa0bebcc552"
 
   url "https://github.com/Agent15-AI/WheelConvert/releases/download/v#{version}/WheelConvert-#{version}.dmg"
   name "WheelConvert"
