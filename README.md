@@ -55,13 +55,38 @@ Then open WheelConvert. It lives in the menu bar; the welcome window walks throu
 ## Releasing
 
 Push a version tag and GitHub Actions builds everything from source, publishes the release (disk image,
-checksum, and the LGPL source archives) and updates `Casks/wheelconvert.rb` on `main`:
+checksum, signed Sparkle `appcast.xml`, and the LGPL source archives) and updates `Casks/wheelconvert.rb` on `main`:
 
 ```bash
-git tag v1.0.0 && git push origin v1.0.0
+git tag v1.1.0 && git push origin v1.1.0
 ```
 
-To build the same release locally instead: `scripts/release.sh 1.0.0` writes it to `dist/`.
+To build the same release locally instead: `scripts/release.sh 1.1.0` writes it to `dist/`.
+
+### Update signing keys (once)
+
+WheelConvert updates itself with [Sparkle](https://sparkle-project.org). Every update is signed with an
+EdDSA key; the app carries the public half and refuses updates the private half didn't sign. This is
+what lets updates work without a paid Apple Developer ID (the app stays ad-hoc signed).
+
+1. Build once so Sparkle's tools are downloaded: `scripts/build.sh`.
+2. Create the key pair. The private key goes into your login keychain; the command prints the public key:
+   ```bash
+   build/DD/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_keys
+   ```
+3. Put the public key in `project.yml` (`SPARKLE_PUBLIC_KEY: <key>`) and commit it. It is public; it belongs in the repo.
+4. Give the private key to GitHub Actions as a secret. This exports it into a folder only you can read,
+   uploads it and deletes the copy:
+   ```bash
+   KEYDIR=$(mktemp -d) && build/DD/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_keys -x "$KEYDIR/key" && gh secret set SPARKLE_PRIVATE_KEY --repo Agent15-AI/WheelConvert < "$KEYDIR/key"; rm -rf "$KEYDIR"
+   ```
+5. Keep a backup of the private key (it stays in your keychain as "Private key for signing Sparkle updates";
+   a password manager is a good second copy). If it's lost, installed copies can't accept updates signed
+   with a new key, and people would have to download the next version by hand.
+
+The release fails early, with a message, if the public key or the secret is missing, and it checks that
+the secret's signature verifies with the public key before publishing anything. Builds without a public
+key (local development) never check for updates.
 
 ## Building
 
@@ -95,6 +120,9 @@ The app binary also has developer modes used by these scripts:
 `--preview-check <file> [seconds]`, which times how quickly a tool preview starts playing (and plays again after a seek),
 `--batch <format> <files…>` (the parallel job queue), `--preset <name> <files…>`,
 `--watch <folder> <preset> <seconds>` and `--intent convert|compress|preset <argument> <files…>` (the Shortcuts actions).
+
+`scripts/e2e/update-test.sh` builds two ad-hoc signed copies with a throwaway key and checks that Sparkle
+updates the older one from a local appcast (it briefly adds a second WheelConvert icon to the menu bar).
 
 `scripts/e2e/DragDriver.swift` performs a real drag with a modifier tap and drops on a petal. It moves the
 mouse and presses keys, so run it only while you're not using the Mac.

@@ -49,6 +49,9 @@ jobs:
           zsh scripts/build-exiftool.sh
           (cd js && npm ci && npm run build)
       - name: Build release
+        env:
+          # Signs the update for Sparkle; see README → Releasing.
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         run: zsh scripts/release.sh "${GITHUB_REF_NAME#v}"
       - name: Publish
         env:

@@ -10,6 +10,9 @@ cask "wheelconvert" do
   depends_on arch: :arm64
   depends_on macos: :ventura
 
+  # WheelConvert updates itself with Sparkle (Check for Updates… in its menu).
+  auto_updates true
+
   app "WheelConvert.app"
 
   # The app isn't notarized (no paid Apple Developer account), so clear the download quarantine;

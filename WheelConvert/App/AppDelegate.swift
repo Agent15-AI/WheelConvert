@@ -21,6 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         monitor.isWheelVisible = { [weak self] in self?.wheel.isOpenForDrag ?? false }
         monitor.start()
         NSApp.servicesProvider = self
+        MainActor.assumeIsolated { Updater.shared.start() }
         // @Published fires before the value changes, so the watcher reads Settings on the next turn.
         settingsObserver = AppSettings.shared.$watchFolders.combineLatest(AppSettings.shared.$presets)
             .receive(on: DispatchQueue.main)

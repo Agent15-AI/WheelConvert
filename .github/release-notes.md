@@ -14,5 +14,8 @@ developer. Either:
 - open **System Settings → Privacy & Security**, scroll down, and click **Open Anyway** next to WheelConvert; or
 - run `xattr -dr com.apple.quarantine /Applications/WheelConvert.app` in Terminal once.
 
+WheelConvert 1.1 and later update themselves: they check automatically, and **Check for Updates…** in the
+menu bar menu checks right away.
+
 Requires macOS 13 or later on an Apple silicon Mac. The FFmpeg and LAME source archives are attached as
 their LGPL license asks.

@@ -57,6 +57,10 @@ open(os.path.join(out, "main.swift"), "w").write("\n".join(calls) + '\nprint("\\
 PY
 SRC=$ROOT/WheelConvert
 SOURCES=(${(f)"$(find $SRC -name '*.swift' ! -path '*/App/main.swift')"})
+# Sparkle comes from the app build's package checkout (scripts/build.sh).
+SPARKLE=$ROOT/build/DD/SourcePackages/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64
+[[ -d $SPARKLE ]] || { echo "Run scripts/build.sh first (it downloads Sparkle)"; exit 1; }
 swiftc -O -module-name WheelConvert -import-objc-header $SRC/Support/WheelConvert-Bridging-Header.h -I $ROOT/Vendor/build/deps/include \
-  -L $ROOT/Vendor/build/deps/lib -lwebpmux -lwebp -lsharpyuv -lz -o $OUT/run $SOURCES $OUT/*.swift 2>&1 | grep -E "error:" | head -20 || true
+  -L $ROOT/Vendor/build/deps/lib -lwebpmux -lwebp -lsharpyuv -lz -F $SPARKLE -framework Sparkle -Xlinker -rpath -Xlinker $SPARKLE \
+  -o $OUT/run $SOURCES $OUT/*.swift 2>&1 | grep -E "error:" | head -20 || true
 $OUT/run

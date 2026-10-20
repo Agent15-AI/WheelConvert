@@ -31,6 +31,9 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         let hint = NSMenuItem(title: "Drag a file, then press \(AppSettings.shared.conversionModifiers.symbols)", action: nil, keyEquivalent: "")
         hint.isEnabled = false
         menu.addItem(hint)
+        if let version = MainActor.assumeIsolated({ Updater.shared.waitingVersion }) {
+            add("WheelConvert \(version) Is Available…", #selector(checkForUpdates))
+        }
         menu.addItem(.separator())
         let recent = RecentResults.urls
         if !recent.isEmpty {
@@ -44,6 +47,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         add("Getting Started…", #selector(openWelcome))
         if MainActor.assumeIsolated({ FloatController.shared.hasFloats }) { add("Show Floats", #selector(showFloats)) }
         add("Settings…", #selector(openSettings), key: ",")
+        if MainActor.assumeIsolated({ Updater.shared.isAvailable }) { add("Check for Updates…", #selector(checkForUpdates)) }
         menu.addItem(.separator())
         add("About WheelConvert", #selector(showAbout))
         add("Quit WheelConvert", #selector(quit), key: "q")
@@ -94,6 +98,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     @objc private func openWelcome() { MainActor.assumeIsolated { WelcomeWindowController.shared.show() } }
     @objc private func openSettings() { MainActor.assumeIsolated { SettingsWindowController.shared.show() } }
+    @objc private func checkForUpdates() { MainActor.assumeIsolated { Updater.shared.checkForUpdates() } }
     @objc private func showFloats() { MainActor.assumeIsolated { FloatController.shared.showAll() } }
 
     @objc private func showAbout() {

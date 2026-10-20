@@ -96,6 +96,12 @@ struct GeneralSettings: View {
                 Toggle("Sound and haptic feedback", isOn: $settings.soundsAndHaptics)
                 Toggle("Reveal results in Finder", isOn: $settings.revealResults)
             }
+            if Updater.shared.isAvailable {
+                Section("Updates") {
+                    Toggle("Check for updates automatically", isOn: Binding(get: { Updater.shared.automaticallyChecks }, set: { Updater.shared.automaticallyChecks = $0 }))
+                    Button("Check Now") { Updater.shared.checkForUpdates() }
+                }
+            }
             Section("File actions") {
                 Picker("Float", selection: $settings.floatBehavior) { ForEach(FloatBehavior.allCases) { Text($0.title).tag($0) } }
                 Picker("Terminal app", selection: $settings.terminalApp) {
@@ -596,7 +602,7 @@ struct AboutSettings: View {
             Text("Version \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0")").foregroundStyle(.secondary)
             Text("Free, offline file conversion. Every conversion and tool runs on your Mac; files are never uploaded.")
                 .multilineTextAlignment(.center).frame(maxWidth: 380)
-            Text("Built with FFmpeg (LGPL), LAME, libvpx, Opus, Vorbis, libwebp, ExifTool, Apache POI, Apache PDFBox, docx-preview, JSZip and cupertino-files.")
+            Text("Built with FFmpeg (LGPL), LAME, libvpx, Opus, Vorbis, libwebp, ExifTool, Apache POI, Apache PDFBox, docx-preview, JSZip, cupertino-files and Sparkle.")
                 .font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: 420)
             Button("Show Licenses") {
                 NSWorkspace.shared.activateFileViewerSelecting([Bundled.resources.appendingPathComponent("Licenses")])
