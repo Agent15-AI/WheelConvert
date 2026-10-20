@@ -5,7 +5,7 @@ import AppKit
 enum FileActions {
     static func perform(_ action: FileAction, urls: [URL]) {
         let local = urls.filter(\.isFileURL)
-        guard !local.isEmpty else { return alert("Only local files and folders can be used.") }
+        guard !local.isEmpty else { return alert(String(localized: "Only local files and folders can be used.")) }
         switch action {
         case .airDrop: airDrop(local)
         case .float: FloatController.shared.add(local)
@@ -22,7 +22,7 @@ enum FileActions {
 
     static func airDrop(_ urls: [URL]) {
         guard let service = NSSharingService(named: .sendViaAirDrop), service.canPerform(withItems: urls) else {
-            return alert("AirDrop isn’t available for these files on this Mac.")
+            return alert(String(localized: "AirDrop isn’t available for these files on this Mac."))
         }
         let delegate = AirDropDelegate()
         sharing = delegate
@@ -35,7 +35,7 @@ enum FileActions {
         func sharingService(_ sharingService: NSSharingService, didShareItems items: [Any]) { FileActions.sharing = nil }
         func sharingService(_ sharingService: NSSharingService, didFailToShareItems items: [Any], error: Error) {
             FileActions.sharing = nil
-            if (error as NSError).code != NSUserCancelledError { FileActions.alert("Couldn’t AirDrop files: \(error.localizedDescription)") }
+            if (error as NSError).code != NSUserCancelledError { FileActions.alert(String(localized: "Couldn’t AirDrop files: \(error.localizedDescription)")) }
         }
     }
 
@@ -44,17 +44,17 @@ enum FileActions {
     static func copy(_ urls: [URL]) {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
-        guard pasteboard.writeObjects(urls as [NSURL]) else { return alert("The files couldn’t be placed on the clipboard.") }
-        Feedback.confirm("Copied \(urls.count == 1 ? urls[0].lastPathComponent : "\(urls.count) items")")
+        guard pasteboard.writeObjects(urls as [NSURL]) else { return alert(String(localized: "The files couldn’t be placed on the clipboard.")) }
+        Feedback.confirm(urls.count == 1 ? String(localized: "Copied \(urls[0].lastPathComponent)") : String(localized: "Copied \(urls.count) items"))
     }
 
     static func copyPaths(_ urls: [URL]) {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         guard pasteboard.setString(urls.map(\.path).joined(separator: "\n"), forType: .string) else {
-            return alert("The paths couldn’t be placed on the clipboard.")
+            return alert(String(localized: "The paths couldn’t be placed on the clipboard."))
         }
-        Feedback.confirm(urls.count == 1 ? "Copied path" : "Copied \(urls.count) paths")
+        Feedback.confirm(urls.count == 1 ? String(localized: "Copied path") : String(localized: "Copied \(urls.count) paths"))
     }
 
     // MARK: Move
@@ -66,8 +66,9 @@ enum FileActions {
         panel.canChooseFiles = false
         panel.canCreateDirectories = true
         panel.allowsMultipleSelection = false
-        panel.prompt = "Move"
-        panel.message = "Choose a destination folder for \(urls.count == 1 ? "“\(urls[0].lastPathComponent)”" : "\(urls.count) items")."
+        panel.prompt = String(localized: "Move")
+        panel.message = urls.count == 1 ? String(localized: "Choose a destination folder for “\(urls[0].lastPathComponent)”.")
+            : String(localized: "Choose a destination folder for \(urls.count) items.")
         panel.directoryURL = urls.first?.deletingLastPathComponent()
         guard panel.runModal() == .OK, let destination = panel.url?.standardizedFileURL else { return }
         var failures: [String] = []
@@ -75,7 +76,7 @@ enum FileActions {
         for url in urls {
             let source = url.standardizedFileURL
             if destination.path == source.path || destination.path.hasPrefix(source.path + "/") {
-                failures.append("Choose a destination outside “\(source.lastPathComponent)”.")
+                failures.append(String(localized: "Choose a destination outside “\(source.lastPathComponent)”."))
                 continue
             }
             if source.deletingLastPathComponent().path == destination.path { moved.append(source); continue }
@@ -90,7 +91,7 @@ enum FileActions {
             }
         }
         if !moved.isEmpty { NSWorkspace.shared.activateFileViewerSelecting(moved) }
-        if !failures.isEmpty { alert(failures.joined(separator: "\n"), title: moved.isEmpty ? "No items were moved." : "Some items weren’t moved.") }
+        if !failures.isEmpty { alert(failures.joined(separator: "\n"), title: moved.isEmpty ? String(localized: "No items were moved.") : String(localized: "Some items weren’t moved.")) }
     }
 
     // MARK: Terminal
@@ -100,8 +101,8 @@ enum FileActions {
     static func openTerminal(_ urls: [URL]) {
         let id = AppSettings.shared.terminalApp
         guard let app = NSWorkspace.shared.urlForApplication(withBundleIdentifier: id) else {
-            let name = terminals.first { $0.id == id }?.name ?? "The terminal app"
-            return alert("\(name) isn’t installed. Choose another terminal app in Settings → General.")
+            let name = terminals.first { $0.id == id }?.name ?? String(localized: "The terminal app")
+            return alert(String(localized: "\(name) isn’t installed. Choose another terminal app in Settings → General."))
         }
         var folders: [URL] = []
         for url in urls {
@@ -112,7 +113,7 @@ enum FileActions {
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.activates = true
         NSWorkspace.shared.open(folders, withApplicationAt: app, configuration: configuration) { _, error in
-            if let error { DispatchQueue.main.async { alert("Couldn’t open terminal: \(error.localizedDescription)") } }
+            if let error { DispatchQueue.main.async { alert(String(localized: "Couldn’t open terminal: \(error.localizedDescription)")) } }
         }
     }
 

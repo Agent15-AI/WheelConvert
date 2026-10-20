@@ -33,7 +33,7 @@ enum FFmpeg {
         if detail.localizedCaseInsensitiveContains("No space left") {
             return WheelError("There isn't enough disk space to save the result.")
         }
-        return WheelError(detail.isEmpty ? "The conversion process failed." : "The conversion process failed: \(detail)")
+        return detail.isEmpty ? WheelError("The conversion process failed.") : WheelError("The conversion process failed: \(detail)")
     }
 
     /// Escapes a path or text for use inside an ffmpeg filter argument.

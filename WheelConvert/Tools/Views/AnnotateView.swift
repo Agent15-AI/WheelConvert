@@ -23,7 +23,8 @@ struct AnnotateView: View {
             case .image: "photo.badge.plus"
             }
         }
-        var help: String {
+        var help: String { String(localized: helpKey) }
+        private var helpKey: String.LocalizationValue {
             switch self {
             case .select: "Select: drag an annotation to move it"
             case .arrow: "Arrow — drag from the tail toward the arrowhead"
@@ -69,7 +70,7 @@ struct AnnotateView: View {
     @State private var customColor = Color.red
 
     var body: some View {
-        ToolFrame(primary: "Save Annotated Copy", canApply: !items.isEmpty, note: tool.help, reset: {
+        ToolFrame(primary: String(localized: "Save Annotated Copy"), canApply: !items.isEmpty, note: tool.help, reset: {
             ToolMemory.forget(.annotateImage)
             let defaults = Memory()
             tool = .arrow; color = defaults.color; lineWidth = defaults.lineWidth

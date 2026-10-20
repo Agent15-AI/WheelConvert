@@ -7,7 +7,7 @@ enum ToolOptions {
         enum Mode: String, Codable, CaseIterable, Identifiable {
             case preset, fileSize, percentage
             var id: String { rawValue }
-            var title: String { self == .preset ? "Preset" : self == .fileSize ? "Target Size" : "Percentage" }
+            var title: String { self == .preset ? String(localized: "Preset") : self == .fileSize ? String(localized: "Target Size") : String(localized: "Percentage") }
         }
         var mode: Mode = .preset
         var strength: CompressionStrength = .balanced
@@ -45,7 +45,8 @@ enum ToolOptions {
         enum Ratio: String, Codable, CaseIterable, Identifiable {
             case automatic, square, landscape16x9, landscape4x3, portrait4x5, portrait9x16
             var id: String { rawValue }
-            var title: String {
+            var title: String { String(localized: titleKey) }
+            private var titleKey: String.LocalizationValue {
                 switch self {
                 case .automatic: "Automatic"
                 case .square: "Square · 1:1"
@@ -98,7 +99,7 @@ enum ToolOptions {
         enum Style: String, Codable, CaseIterable, Identifiable {
             case solid, blur
             var id: String { rawValue }
-            var title: String { rawValue.capitalized }
+            var title: String { self == .solid ? String(localized: "Solid") : String(localized: "Blur") }
         }
         var regions: [Redaction] = []
         var style: Style = .solid
@@ -109,7 +110,7 @@ enum ToolOptions {
         enum Layout: String, Codable, CaseIterable, Identifiable {
             case grid, horizontal, vertical, featured
             var id: String { rawValue }
-            var title: String { self == .horizontal ? "Row" : self == .vertical ? "Column" : rawValue.capitalized }
+            var title: String { self == .horizontal ? String(localized: "Row") : self == .vertical ? String(localized: "Column") : self == .grid ? String(localized: "Grid") : String(localized: "Featured") }
         }
         var layout: Layout = .grid
         var columns = 0          // 0 picks automatically
@@ -186,7 +187,7 @@ enum ToolOptions {
         enum Canvas: String, Codable, CaseIterable, Identifiable {
             case landscape, portrait, square
             var id: String { rawValue }
-            var title: String { self == .landscape ? "Landscape · 16:9" : self == .portrait ? "Portrait · 9:16" : "Square · 1:1" }
+            var title: String { self == .landscape ? String(localized: "Landscape · 16:9") : self == .portrait ? String(localized: "Portrait · 9:16") : String(localized: "Square · 1:1") }
             var size: (Int, Int) { self == .landscape ? (1920, 1080) : self == .portrait ? (1080, 1920) : (1080, 1080) }
         }
         var style: Style = .waveform
@@ -225,7 +226,7 @@ enum ToolOptions {
         enum Mode: String, Codable, CaseIterable, Identifiable {
             case everyPage, everyN, ranges
             var id: String { rawValue }
-            var title: String { self == .everyPage ? "Every Page" : self == .everyN ? "Every N Pages" : "Custom Ranges" }
+            var title: String { self == .everyPage ? String(localized: "Every Page") : self == .everyN ? String(localized: "Every N Pages") : String(localized: "Custom Ranges") }
         }
         var mode: Mode = .everyPage
         var every = 2

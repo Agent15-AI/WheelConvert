@@ -56,7 +56,7 @@ struct EditPhotoView: View {
     @State private var showOriginal = false
 
     var body: some View {
-        ToolFrame(primary: "Save Edited Copy", canApply: !adjustments.isNeutral, cancel: close, apply: {
+        ToolFrame(primary: String(localized: "Save Edited Copy"), canApply: !adjustments.isNeutral, cancel: close, apply: {
             ToolMemory.save(adjustments, for: .editImage)
             apply(adjustments)
         }) {
@@ -142,7 +142,7 @@ struct BackgroundView: View {
     }
 
     var body: some View {
-        ToolFrame(primary: urls.count == 1 ? "Save with Background" : "Add Background to \(urls.count) Photos", canApply: options.kind != .image || options.imagePath != nil,
+        ToolFrame(primary: urls.count == 1 ? String(localized: "Save with Background") : String(localized: "Add Background to \(urls.count) Photos"), canApply: options.kind != .image || options.imagePath != nil,
                   reset: { ToolMemory.forget(.frameImage); options = ToolOptions.Background() },
                   cancel: close, apply: { ToolMemory.save(options, for: .frameImage); apply(options) }) {
             HStack(spacing: 0) {
@@ -223,7 +223,7 @@ func chooseImage() -> URL? {
     let panel = NSOpenPanel()
     panel.allowedContentTypes = [.image]
     panel.allowsMultipleSelection = false
-    panel.prompt = "Choose"
+    panel.prompt = String(localized: "Choose")
     return panel.runModal() == .OK ? panel.url : nil
 }
 
@@ -259,14 +259,14 @@ struct CropView: View {
         var outputHeight = ""
     }
 
-    static let aspects: [(String, Double?)] = [("Free", nil), ("Original", -1), ("Square", 1), ("4:3", 4.0 / 3), ("3:2", 1.5), ("16:9", 16.0 / 9), ("3:4", 0.75), ("4:5", 0.8), ("9:16", 9.0 / 16)]
+    static let aspects: [(String, Double?)] = [(String(localized: "Free"), nil), (String(localized: "Original"), -1), (String(localized: "Square"), 1), ("4:3", 4.0 / 3), ("3:2", 1.5), ("16:9", 16.0 / 9), ("3:4", 0.75), ("4:5", 0.8), ("9:16", 9.0 / 16)]
 
     private var rect: CGRect { rects.first ?? CGRect(x: 0, y: 0, width: 1, height: 1) }
     private var cropPixels: CGSize { CGSize(width: (rect.width * source.pixelSize.width).rounded(), height: (rect.height * source.pixelSize.height).rounded()) }
 
     var body: some View {
-        ToolFrame(primary: urls.count == 1 ? "Save Cropped Copy" : "Crop \(urls.count) Images", canApply: rect.width > 0.001 && rect.height > 0.001,
-                  note: urls.count > 1 ? "The same share of each image is kept, for every image." : nil, reset: {
+        ToolFrame(primary: urls.count == 1 ? String(localized: "Save Cropped Copy") : String(localized: "Crop \(urls.count) Images"), canApply: rect.width > 0.001 && rect.height > 0.001,
+                  note: urls.count > 1 ? String(localized: "The same share of each image is kept, for every image.") : nil, reset: {
                       ToolMemory.forget(.cropImage)
                       aspect = nil; outputWidth = ""; outputHeight = ""
                   }, cancel: close, apply: {
@@ -331,7 +331,9 @@ struct RedactPhotoView: View {
     @State private var message: String?
 
     var body: some View {
-        ToolFrame(primary: "Save Redacted Copy", canApply: !rects.isEmpty, note: message ?? (rects.isEmpty ? "Drag on the photo to cover an area, or detect faces or text." : style == .blur ? "Blur softens details. Use Solid for sensitive information." : "Metadata is removed from redacted copies."),
+        ToolFrame(primary: String(localized: "Save Redacted Copy"), canApply: !rects.isEmpty,
+                  note: message ?? (rects.isEmpty ? String(localized: "Drag on the photo to cover an area, or detect faces or text.")
+                      : style == .blur ? String(localized: "Blur softens details. Use Solid for sensitive information.") : String(localized: "Metadata is removed from redacted copies.")),
                   reset: { ToolMemory.forget(.redactImage); style = .solid; color = .black },
                   cancel: close, apply: {
                       ToolMemory.save(ToolOptions.Redact(style: style, color: color.hexString), for: .redactImage)
@@ -369,7 +371,11 @@ struct RedactPhotoView: View {
         Task {
             let found = (try? await Task.detached { try ImageTools.detect(kind, in: image) }.value) ?? []
             rects += found.map { CGRect(x: $0.x, y: $0.y, width: $0.width, height: $0.height) }
-            message = found.isEmpty ? "No \(kind) found." : "Added \(found.count) area\(found.count == 1 ? "" : "s")."
+            if found.isEmpty {
+                message = kind == "faces" ? String(localized: "No faces found.") : String(localized: "No text found.")
+            } else {
+                message = found.count == 1 ? String(localized: "Added 1 area.") : String(localized: "Added \(found.count) areas.")
+            }
             detecting = false
         }
     }
@@ -415,7 +421,7 @@ struct CollageView: View {
     }
 
     var body: some View {
-        ToolFrame(primary: "Create Collage", canApply: urls.count >= 2, reset: {
+        ToolFrame(primary: String(localized: "Create Collage"), canApply: urls.count >= 2, reset: {
             ToolMemory.forget(.createCollage)
             options = ToolOptions.Collage()
             color = .white

@@ -30,7 +30,7 @@ final class ProgressPanelController {
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         host = NSHostingView(rootView: ProgressPanelView(job: job, close: { JobCenter.shared.close(job) }))
         panel.contentView = host
-        panel.setAccessibilityLabel("\(job.title) progress")
+        panel.setAccessibilityLabel(String(localized: "\(job.title) progress"))
         observer = job.$phase.dropFirst().receive(on: DispatchQueue.main).sink { [weak self] _ in self?.fit() }
     }
 

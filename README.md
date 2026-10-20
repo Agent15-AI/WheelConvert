@@ -27,6 +27,9 @@ Keys are configurable in Settings. Results are saved next to the original (or in
 folder is read-only) and never overwrite an existing file. Settings → General → Save results can instead
 ask for a folder each time or always use one chosen folder. The menu bar menu lists recent results.
 
+WheelConvert speaks English, German, French, Spanish, Japanese and Simplified Chinese, following the
+language set for it in System Settings → General → Language & Region.
+
 Requirements: macOS 13 or later on Apple silicon.
 
 ## Install
@@ -104,6 +107,12 @@ scripts/build.sh               # xcodegen + Debug build → build/DD/Build/Produ
 
 `scripts/build.sh` passes extra arguments to `xcodebuild`, e.g. `CONFIG=Release scripts/build.sh`.
 The Xcode build embeds and signs the vendor tools (`scripts/embed-vendor.sh`).
+
+User-facing text lives in String Catalogs (`WheelConvert/Resources/Localizable.xcstrings`, plus
+`ServicesMenu.xcstrings` for the Finder menu items). After changing text in the code, run `scripts/build.sh` and then
+`scripts/sync-strings.sh`, which adds new strings to the catalog as Xcode does, and translate them in Xcode's catalog
+editor. `scripts/test-tools.py` fails while any string lacks a translation or has mismatched placeholders.
+To see the app in another language: `WheelConvert -AppleLanguages '(de)' --snapshot settings out.png`.
 
 ## Testing
 

@@ -4,7 +4,8 @@ import AppKit
 enum WheelMode: String, CaseIterable, Codable, Identifiable {
     case convert, tools, actions
     var id: String { rawValue }
-    var title: String {
+    var title: String { String(localized: titleKey) }
+    private var titleKey: String.LocalizationValue {
         switch self {
         case .convert: "Convert"
         case .tools: "File Tools"

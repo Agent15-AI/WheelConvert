@@ -52,7 +52,7 @@ enum ImageTools {
         guard Int64(data.count) < original || options.maxDimension > 0 else {
             throw WheelError("This image is already well compressed. Try a stronger preset or a smaller size.")
         }
-        let destination = OutputNaming.tool(source, suffix: "Compressed")
+        let destination = OutputNaming.tool(source, suffix: String(localized: "Compressed"))
         try await AtomicOutput.write(to: destination) { try data.write(to: $0) }
         return destination
     }
@@ -150,18 +150,20 @@ enum ImageTools {
             guard let scaled = context.makeImage() else { throw WheelError("Could not create the cropped image.") }
             result = scaled
         }
-        return try await save(result, like: source, suffix: "Cropped", metadata: image.metadata)
+        return try await save(result, like: source, suffix: String(localized: "Cropped"), metadata: image.metadata)
     }
 
     // MARK: Background
 
     static let gradients: [(id: String, name: String, colors: [String])] = [
-        ("dusk", "Dusk", ["6B5CFF", "2EA8FF"]), ("ocean", "Ocean", ["0F4C81", "2EC5CE"]), ("meadow", "Meadow", ["9BE15D", "00A86B"]),
-        ("peach", "Peach", ["FFD3A5", "FD6585"]), ("lilac", "Lilac", ["E0C3FC", "8EC5FC"]), ("mint", "Mint", ["D4FC79", "96E6A1"]),
-        ("sunset", "Sunset", ["FF7E5F", "FEB47B"]), ("sky", "Sky", ["A1C4FD", "C2E9FB"]), ("ember", "Ember", ["F83600", "F9D423"]),
-        ("forest", "Forest", ["134E5E", "71B280"]), ("aurora", "Aurora", ["00C9FF", "92FE9D"]), ("rose", "Rose", ["F4C4F3", "FC67FA"]),
-        ("sand", "Sand", ["E6DADA", "BFA58A"]), ("lagoon", "Lagoon", ["43CEA2", "185A9D"]), ("night", "Night", ["232526", "414345"]),
-        ("graphite", "Graphite", ["4B4B52", "1C1C20"]),
+        ("dusk", String(localized: "Dusk"), ["6B5CFF", "2EA8FF"]), ("ocean", String(localized: "Ocean"), ["0F4C81", "2EC5CE"]),
+        ("meadow", String(localized: "Meadow"), ["9BE15D", "00A86B"]), ("peach", String(localized: "Peach"), ["FFD3A5", "FD6585"]),
+        ("lilac", String(localized: "Lilac"), ["E0C3FC", "8EC5FC"]), ("mint", String(localized: "Mint"), ["D4FC79", "96E6A1"]),
+        ("sunset", String(localized: "Sunset"), ["FF7E5F", "FEB47B"]), ("sky", String(localized: "Sky"), ["A1C4FD", "C2E9FB"]),
+        ("ember", String(localized: "Ember"), ["F83600", "F9D423"]), ("forest", String(localized: "Forest"), ["134E5E", "71B280"]),
+        ("aurora", String(localized: "Aurora"), ["00C9FF", "92FE9D"]), ("rose", String(localized: "Rose"), ["F4C4F3", "FC67FA"]),
+        ("sand", String(localized: "Sand"), ["E6DADA", "BFA58A"]), ("lagoon", String(localized: "Lagoon"), ["43CEA2", "185A9D"]),
+        ("night", String(localized: "Night"), ["232526", "414345"]), ("graphite", String(localized: "Graphite"), ["4B4B52", "1C1C20"]),
     ]
 
     static let solids: [String] = ["FFFFFF", "F2F2F7", "000000", "1C1C1E", "FF3B30", "FF9500", "FFCC00", "34C759", "00C7BE", "30B0C7",
@@ -170,7 +172,7 @@ enum ImageTools {
     static func frame(_ source: URL, options: ToolOptions.Background) async throws -> URL {
         let photo = try ImageConverter.load(source)
         let canvas = try renderFrame(photo.cgImage, options: options)
-        return try await save(canvas, like: source, suffix: "Background", metadata: photo.metadata, needsAlpha: options.kind == .transparent)
+        return try await save(canvas, like: source, suffix: String(localized: "Background"), metadata: photo.metadata, needsAlpha: options.kind == .transparent)
     }
 
     static func renderFrame(_ photo: CGImage, options: ToolOptions.Background) throws -> CGImage {
@@ -239,7 +241,7 @@ enum ImageTools {
     static func edit(_ source: URL, adjustments: ToolOptions.Adjustments) async throws -> URL {
         let photo = try ImageConverter.load(source)
         let output = try applyAdjustments(adjustments, to: photo.cgImage)
-        return try await save(output, like: source, suffix: "Edited", metadata: photo.metadata, needsAlpha: photo.hasAlpha)
+        return try await save(output, like: source, suffix: String(localized: "Edited"), metadata: photo.metadata, needsAlpha: photo.hasAlpha)
     }
 
     static func applyAdjustments(_ a: ToolOptions.Adjustments, to image: CGImage) throws -> CGImage {
@@ -320,7 +322,7 @@ enum ImageTools {
         let photo = try ImageConverter.load(source)
         let output = try renderRedactions(photo.cgImage, options: options)
         // Redaction strips metadata too: it can describe what was hidden.
-        return try await save(output, like: source, suffix: "Redacted", metadata: nil, needsAlpha: photo.hasAlpha)
+        return try await save(output, like: source, suffix: String(localized: "Redacted"), metadata: nil, needsAlpha: photo.hasAlpha)
     }
 
     static func renderRedactions(_ image: CGImage, options: ToolOptions.Redact) throws -> CGImage {
@@ -377,7 +379,7 @@ enum ImageTools {
         guard ordered.count >= 2 else { throw WheelError("Select at least two images.") }
         let images = try ordered.map { try ImageConverter.load($0, maxPixelSize: 3000).cgImage }
         let output = try renderCollage(images, options: options)
-        let destination = OutputNaming.unique(in: Publisher.destinationDirectory(for: ordered[0]), base: "Collage", extension: "png")
+        let destination = OutputNaming.unique(in: Publisher.destinationDirectory(for: ordered[0]), base: String(localized: "Collage"), extension: "png")
         return try await AtomicOutput.write(to: destination) {
             try ImageConverter.write(LoadedImage(cgImage: output, metadata: nil, dpi: nil), as: .png, quality: .high, keepMetadata: false, to: $0)
         }
@@ -487,7 +489,7 @@ enum ImageTools {
     static func createPDF(_ sources: [URL], order: [String]) async throws -> URL {
         let ordered = order.isEmpty ? sources : order.map { URL(fileURLWithPath: $0) }
         let images = try ordered.map { try ImageConverter.load($0) }
-        let destination = OutputNaming.unique(in: Publisher.destinationDirectory(for: ordered[0]), base: "Combined Images", extension: "pdf")
+        let destination = OutputNaming.unique(in: Publisher.destinationDirectory(for: ordered[0]), base: String(localized: "Combined Images"), extension: "pdf")
         return try await AtomicOutput.write(to: destination) { try ImageConverter.writePDF(images, to: $0) }
     }
 
@@ -524,7 +526,7 @@ enum ImageTools {
         if FileFormat.detect(source) == .pdf {
             do {
                 text = try PDFConverter.text(try PDFConverter.open(source), progress: progress)
-            } catch let error as WheelError where error.message == "This PDF has no selectable text." {
+            } catch let error as WheelError where error == WheelError("This PDF has no selectable text.") {
                 throw WheelError("No text was found in “\(source.lastPathComponent)”.")
             }
         } else {
@@ -534,7 +536,7 @@ enum ImageTools {
         }
         text = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { throw WheelError("No text was found in “\(source.lastPathComponent)”.") }
-        let destination = OutputNaming.tool(source, suffix: "Text", extension: "txt")
+        let destination = OutputNaming.tool(source, suffix: String(localized: "Text"), extension: "txt")
         return try await AtomicOutput.write(to: destination) { try (text + "\n").write(to: $0, atomically: false, encoding: .utf8) }
     }
 
@@ -572,7 +574,7 @@ enum ImageTools {
         guard !options.items.isEmpty else { throw WheelError("Add at least one annotation.") }
         let photo = try ImageConverter.load(source)
         let output = try renderAnnotations(options.items, on: photo.cgImage)
-        return try await save(output, like: source, suffix: "Annotated", metadata: photo.metadata, needsAlpha: photo.hasAlpha)
+        return try await save(output, like: source, suffix: String(localized: "Annotated"), metadata: photo.metadata, needsAlpha: photo.hasAlpha)
     }
 
     static func renderAnnotations(_ items: [ToolOptions.Annotation], on image: CGImage) throws -> CGImage {

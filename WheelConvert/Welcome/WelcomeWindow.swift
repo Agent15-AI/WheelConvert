@@ -84,7 +84,7 @@ struct WelcomeView: View {
         }
     }
 
-    private func wheelPage(_ mode: WheelMode, title: String, text: String) -> some View {
+    private func wheelPage(_ mode: WheelMode, title: LocalizedStringKey, text: LocalizedStringKey) -> some View {
         VStack(spacing: 18) {
             Text(title).font(.system(size: 30, weight: .bold, design: .rounded))
             Text(text).font(.title3).multilineTextAlignment(.center).opacity(0.92)

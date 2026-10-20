@@ -31,7 +31,7 @@ struct WheelItem: Equatable, Identifiable {
     /// Longer name shown in the center while hovering.
     var title: String {
         switch action {
-        case .convert(let f): "Convert to \(f.title)"
+        case .convert(let f): String(localized: "Convert to \(f.title)")
         case .tool(let t): t.title
         case .fileAction(let a): a.title
         case .preset(let p): p.name
@@ -58,21 +58,21 @@ struct WheelItem: Equatable, Identifiable {
         switch mode {
         case .convert:
             if folders.allSatisfy({ $0 }) {
-                return (ConversionMatrix.folderTargets.map { WheelItem(action: .convert($0)) }, count == 1 ? "FOLDER" : "\(count) FOLDERS")
+                return (ConversionMatrix.folderTargets.map { WheelItem(action: .convert($0)) }, count == 1 ? String(localized: "FOLDER") : String(localized: "\(count) FOLDERS"))
             }
-            guard !folders.contains(true), formats.allSatisfy({ $0 != nil }) else { return ([], "Unsupported file type") }
+            guard !folders.contains(true), formats.allSatisfy({ $0 != nil }) else { return ([], String(localized: "Unsupported file type")) }
             let known = formats.compactMap { $0 }
             let targets = ConversionMatrix.outputs(for: known)
             let presets = AppSettings.shared.presets.filter { $0.showOnWheel && $0.applies(to: urls) }.prefix(presetLimit)
             let items = targets.map { WheelItem(action: .convert($0)) } + presets.map { WheelItem(action: .preset($0)) }
             let idle: String
-            if Set(known).count == 1, let first = known.first { idle = count == 1 ? first.wheelLabel : "\(count) \(first.wheelLabel)" } else { idle = "\(count) FILES" }
-            return (items, items.isEmpty ? "No conversions" : idle)
+            if Set(known).count == 1, let first = known.first { idle = count == 1 ? first.wheelLabel : "\(count) \(first.wheelLabel)" } else { idle = String(localized: "\(count) FILES") }
+            return (items, items.isEmpty ? String(localized: "No conversions") : idle)
         case .tools:
             let tools = folders.contains(true) ? [] : ToolKind.available(for: formats)
-            return (tools.map { WheelItem(action: .tool($0)) }, tools.isEmpty ? "No tools available" : "TOOLS")
+            return (tools.map { WheelItem(action: .tool($0)) }, tools.isEmpty ? String(localized: "No tools available") : String(localized: "TOOLS"))
         case .actions:
-            return (FileAction.allCases.map { WheelItem(action: .fileAction($0)) }, "ACTIONS")
+            return (FileAction.allCases.map { WheelItem(action: .fileAction($0)) }, String(localized: "ACTIONS"))
         }
     }
 }

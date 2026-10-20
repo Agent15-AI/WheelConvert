@@ -31,10 +31,10 @@ final class JobState: ObservableObject, Identifiable {
         switch phase {
         case .running:
             let names = active.sorted { $0.key < $1.key }.map(\.value.name).joined(separator: ", ")
-            return total > 1 ? "\(completed) of \(total) done — \(names)" : names
-        case .finished: return outputs.count == 1 ? "Saved \(outputs[0].lastPathComponent)" : "Saved \(outputs.count) items"
-        case .failed: return failures.count == total ? (total == 1 ? "Couldn’t finish" : "Operation failed") : "Finished with errors"
-        case .cancelled: return "Cancelled"
+            return total > 1 ? String(localized: "\(completed) of \(total) done — \(names)") : names
+        case .finished: return outputs.count == 1 ? String(localized: "Saved \(outputs[0].lastPathComponent)") : String(localized: "Saved \(outputs.count) items")
+        case .failed: return failures.count == total ? (total == 1 ? String(localized: "Couldn’t finish") : String(localized: "Operation failed")) : String(localized: "Finished with errors")
+        case .cancelled: return String(localized: "Cancelled")
         }
     }
 
@@ -63,7 +63,7 @@ final class JobCenter: ObservableObject {
     func convert(_ urls: [URL], to target: FileFormat, options: ConversionOptions? = nil, title: String? = nil, canAsk: Bool = true) -> JobState? {
         let options = options ?? AppSettings.shared.options(for: target)
         let hardwareVideo = [.mp4, .mov, .mkv].contains(target) && urls.contains { FileFormat.detect($0)?.category == .video }
-        return run(title: title ?? "Converting to \(target.title)", items: urls, parallel: Self.parallelLimit(hardwareVideo: hardwareVideo), canAsk: canAsk) { url, progress in
+        return run(title: title ?? String(localized: "Converting to \(target.title)"), items: urls, parallel: Self.parallelLimit(hardwareVideo: hardwareVideo), canAsk: canAsk) { url, progress in
             try await Converter.convert(url, to: target, options: options, progress: progress)
         }
     }
@@ -123,7 +123,7 @@ final class JobCenter: ObservableObject {
     func runBatch(title: String, items: [URL], canAsk: Bool = true, work: @escaping (@escaping (Double) -> Void) async throws -> [URL]) -> JobState? {
         guard let folder = saveFolder(for: items, canAsk: canAsk) else { return nil }
         let job = JobState(title: title, total: 1)
-        let name = items.count == 1 ? items[0].lastPathComponent : "\(items.count) files"
+        let name = items.count == 1 ? items[0].lastPathComponent : String(localized: "\(items.count) files")
         job.active[0] = (name, 0)
         start(job, folder: folder) {
             do {
@@ -153,8 +153,8 @@ final class JobCenter: ObservableObject {
             panel.canChooseFiles = false
             panel.canChooseDirectories = true
             panel.canCreateDirectories = true
-            panel.prompt = "Save Here"
-            panel.message = items.count == 1 ? "Choose where to save the result for “\(items[0].lastPathComponent)”." : "Choose where to save the results for \(items.count) files."
+            panel.prompt = String(localized: "Save Here")
+            panel.message = items.count == 1 ? String(localized: "Choose where to save the result for “\(items[0].lastPathComponent)”.") : String(localized: "Choose where to save the results for \(items.count) files.")
             panel.directoryURL = items.first?.deletingLastPathComponent()
             NSApp.activate(ignoringOtherApps: true)
             guard panel.runModal() == .OK, let url = panel.url else { return nil }

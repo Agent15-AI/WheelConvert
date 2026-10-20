@@ -25,10 +25,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
         let busy = MainActor.assumeIsolated { JobCenter.shared.isBusy }
-        let status = NSMenuItem(title: busy ? "WheelConvert is working…" : "WheelConvert is ready", action: nil, keyEquivalent: "")
+        let status = NSMenuItem(title: busy ? String(localized: "WheelConvert is working…") : String(localized: "WheelConvert is ready"), action: nil, keyEquivalent: "")
         status.isEnabled = false
         menu.addItem(status)
-        let hint = NSMenuItem(title: "Drag a file, then press \(AppSettings.shared.conversionModifiers.symbols)", action: nil, keyEquivalent: "")
+        let hint = NSMenuItem(title: String(localized: "Drag a file, then press \(AppSettings.shared.conversionModifiers.symbols)"), action: nil, keyEquivalent: "")
         hint.isEnabled = false
         menu.addItem(hint)
         if let version = MainActor.assumeIsolated({ Updater.shared.waitingVersion }) {
@@ -37,7 +37,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         menu.addItem(.separator())
         let recent = RecentResults.urls
         if !recent.isEmpty {
-            let header = NSMenuItem(title: "Recent Results", action: nil, keyEquivalent: "")
+            let header = NSMenuItem(title: String(localized: "Recent Results"), action: nil, keyEquivalent: "")
             header.isEnabled = false
             menu.addItem(header)
             for url in recent { menu.addItem(resultItem(url)) }
@@ -53,8 +53,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         add("Quit WheelConvert", #selector(quit), key: "q")
     }
 
-    private func add(_ title: String, _ action: Selector, key: String = "") {
-        let entry = NSMenuItem(title: title, action: action, keyEquivalent: key)
+    private func add(_ title: String.LocalizationValue, _ action: Selector, key: String = "") {
+        let entry = NSMenuItem(title: String(localized: title), action: action, keyEquivalent: key)
         entry.target = self
         menu.addItem(entry)
     }
@@ -67,7 +67,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         icon.size = NSSize(width: 16, height: 16)
         item.image = icon
         let submenu = NSMenu()
-        for (title, action) in [("Reveal in Finder", #selector(revealResult(_:))), ("Open", #selector(openResult(_:))), ("Move to Trash", #selector(trashResult(_:)))] {
+        for (title, action) in [(String(localized: "Reveal in Finder"), #selector(revealResult(_:))), (String(localized: "Open"), #selector(openResult(_:))),
+                                (String(localized: "Move to Trash"), #selector(trashResult(_:)))] {
             let entry = NSMenuItem(title: title, action: action, keyEquivalent: "")
             entry.target = self
             entry.representedObject = url
@@ -104,7 +105,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     @objc private func showAbout() {
         NSApp.activate(ignoringOtherApps: true)
         NSApp.orderFrontStandardAboutPanel(options: [
-            .credits: NSAttributedString(string: "Free, offline file conversion for your Mac.\nConversions run locally; nothing is uploaded.\nThird-party licenses are in WheelConvert.app/Contents/Resources/Licenses.",
+            .credits: NSAttributedString(string: String(localized: "Free, offline file conversion for your Mac.\nConversions run locally; nothing is uploaded.\nThird-party licenses are in WheelConvert.app/Contents/Resources/Licenses."),
                                          attributes: [.font: NSFont.systemFont(ofSize: 11), .foregroundColor: NSColor.secondaryLabelColor]),
         ])
     }
@@ -113,7 +114,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     /// A six-petal wheel drawn as a template image (or circling arrows while busy).
     static func icon(busy: Bool) -> NSImage {
-        if busy, let image = NSImage(systemSymbolName: "arrow.triangle.2.circlepath", accessibilityDescription: "Working") {
+        if busy, let image = NSImage(systemSymbolName: "arrow.triangle.2.circlepath", accessibilityDescription: String(localized: "Working")) {
             image.isTemplate = true
             return image
         }

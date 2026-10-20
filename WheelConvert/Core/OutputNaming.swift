@@ -69,7 +69,7 @@ enum OutputNaming {
         let cleaned = name.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
             .replacingOccurrences(of: "\u{0}", with: "")
         let trimmed = cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? "Untitled" : String(trimmed.prefix(200))
+        return trimmed.isEmpty ? String(localized: "Untitled") : String(trimmed.prefix(200))
     }
 }
 

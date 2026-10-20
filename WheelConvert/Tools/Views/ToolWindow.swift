@@ -40,7 +40,7 @@ final class ToolWindowController: NSObject, NSWindowDelegate {
                          styleMask: [.titled, .closable, .resizable, .fullSizeContentView], backing: .buffered, defer: false)
         super.init()
         window.title = tool.title
-        window.subtitle = urls.count == 1 ? urls[0].lastPathComponent : "\(urls.count) files"
+        window.subtitle = urls.count == 1 ? urls[0].lastPathComponent : String(localized: "\(urls.count) files")
         window.isFloatingPanel = true
         window.level = .floating
         window.hidesOnDeactivate = false
@@ -98,12 +98,12 @@ struct ToolRoot: View {
         case .frameImage: BackgroundView(urls: urls, close: close) { submit(.frame($0)) }
         case .cropImage: CropView(urls: urls, close: close) { submit(.crop($0)) }
         case .redactImage: RedactPhotoView(url: urls[0], close: close) { submit(.redactImage($0)) }
-        case .createPDF: OrderToolView(urls: urls, primary: "Create PDF", note: "Each image becomes one page, in this order.", close: close) { submit(.createPDF(.init(paths: $0.map(\.path))), urls: $0) }
+        case .createPDF: OrderToolView(urls: urls, primary: String(localized: "Create PDF"), note: String(localized: "Each image becomes one page, in this order."), close: close) { submit(.createPDF(.init(paths: $0.map(\.path))), urls: $0) }
         case .createCollage: CollageView(urls: urls, close: close) { submit(.collage($0)) }
         case .trimVideo, .trimAudio: TrimView(urls: urls, isAudio: tool == .trimAudio, close: close) { submit(.trim($0)) }
         case .cropVideo: CropVideoView(url: urls[0], close: close) { submit(.cropVideo($0)) }
         case .changeVideoSpeed: SpeedView(url: urls[0], close: close) { submit(.speed($0)) }
-        case .joinVideos: OrderToolView(urls: urls, primary: "Join Videos", note: "Clips play in this order. The first clip sets the size.", close: close) { submit(.join(.init(paths: $0.map(\.path))), urls: $0) }
+        case .joinVideos: OrderToolView(urls: urls, primary: String(localized: "Join Videos"), note: String(localized: "Clips play in this order. The first clip sets the size."), close: close) { submit(.join(.init(paths: $0.map(\.path))), urls: $0) }
         case .videoSnapshots: SnapshotsView(url: urls[0], close: close) { submit(.snapshots($0)) }
         case .splitVideo: SplitVideoView(url: urls[0], close: close) { submit(.split($0)) }
         case .redactVideo: RedactVideoView(url: urls[0], close: close) { submit(.redactVideo($0)) }
@@ -111,7 +111,7 @@ struct ToolRoot: View {
         case .audioToVideo: VisualizerView(url: urls[0], close: close) { submit(.visualize($0)) }
         case .audioChannels: ChannelsView(urls: urls, close: close) { submit(.channels($0)) }
         case .redactAudio: BleepView(url: urls[0], close: close) { submit(.bleep($0)) }
-        case .mergePDF: OrderToolView(urls: urls, primary: "Merge PDFs", note: "Documents are combined in this order.", close: close) { submit(.mergePDF(.init(paths: $0.map(\.path))), urls: $0) }
+        case .mergePDF: OrderToolView(urls: urls, primary: String(localized: "Merge PDFs"), note: String(localized: "Documents are combined in this order."), close: close) { submit(.mergePDF(.init(paths: $0.map(\.path))), urls: $0) }
         case .organizePDF: OrganizePDFView(url: urls[0], close: close) { submit(.organizePDF($0)) }
         case .splitPDF: SplitPDFView(url: urls[0], close: close) { submit(.splitPDF($0)) }
         case .muteVideo, .extractAudio, .extractArchive, .readQRCode, .extractText: EmptyView()

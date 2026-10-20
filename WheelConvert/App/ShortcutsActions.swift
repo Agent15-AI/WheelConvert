@@ -121,7 +121,7 @@ enum ShortcutJob {
         }
         let (outputs, failures) = await MainActor.run { (job.outputs, job.failures) }
         try Task.checkCancellation()
-        if !failures.isEmpty { throw WheelError(failures.map { "\($0.name): \($0.message)" }.joined(separator: "\n")) }
+        if !failures.isEmpty { throw WheelError(verbatim: failures.map { "\($0.name): \($0.message)" }.joined(separator: "\n")) }
         let scratchPath = scratch.url.resolvingSymlinksInPath().path
         return try outputs.flatMap(expand).map { url in
             guard url.resolvingSymlinksInPath().path.hasPrefix(scratchPath) else { return IntentFile(fileURL: url, filename: url.lastPathComponent) }

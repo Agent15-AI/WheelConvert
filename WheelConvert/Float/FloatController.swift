@@ -55,7 +55,7 @@ final class FloatWindow: NSObject, NSWindowDelegate {
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.delegate = self
         panel.becomesKeyOnlyIfNeeded = false
-        panel.setAccessibilityLabel("Float")
+        panel.setAccessibilityLabel(String(localized: "Float"))
         build()
         add(urls)
     }
@@ -75,7 +75,7 @@ final class FloatWindow: NSObject, NSWindowDelegate {
         modeButton.isBordered = false
         modeButton.target = self
         modeButton.action = #selector(toggleMode)
-        modeButton.setAccessibilityLabel("Switch between icons and list")
+        modeButton.setAccessibilityLabel(String(localized: "Switch between icons and list"))
         let collapse = symbolButton("arrow.down.right.and.arrow.up.left", "Collapse Float", #selector(toggleCollapsed))
         let close = symbolButton("xmark.circle.fill", "Close Float without deleting files", #selector(closeFloat))
         header.orientation = .horizontal
@@ -106,7 +106,7 @@ final class FloatWindow: NSObject, NSWindowDelegate {
         collapsedView.isHidden = true
         let click = NSClickGestureRecognizer(target: self, action: #selector(toggleCollapsed))
         collapsedView.addGestureRecognizer(click)
-        collapsedView.setAccessibilityLabel("Collapsed Float. Click to expand.")
+        collapsedView.setAccessibilityLabel(String(localized: "Collapsed Float. Click to expand."))
 
         for view in [header, scroll, collapsedView] as [NSView] {
             view.translatesAutoresizingMaskIntoConstraints = false
@@ -130,7 +130,8 @@ final class FloatWindow: NSObject, NSWindowDelegate {
         panel.keyHandler = { [weak self] event in self?.itemsView.handleKey(event) ?? false }
     }
 
-    private func symbolButton(_ symbol: String, _ label: String, _ action: Selector) -> NSButton {
+    private func symbolButton(_ symbol: String, _ label: String.LocalizationValue, _ action: Selector) -> NSButton {
+        let label = String(localized: label)
         let button = NSButton(image: NSImage(systemSymbolName: symbol, accessibilityDescription: label)!, target: self, action: action)
         button.isBordered = false
         button.contentTintColor = .secondaryLabelColor
@@ -146,7 +147,7 @@ final class FloatWindow: NSObject, NSWindowDelegate {
 
     private func refresh() {
         let count = itemsView.urls.count
-        countLabel.stringValue = count == 1 ? "1 item" : "\(count) items"
+        countLabel.stringValue = count == 1 ? String(localized: "1 item") : String(localized: "\(count) items")
         modeButton.image = NSImage(systemSymbolName: itemsView.listMode ? "square.grid.2x2" : "list.bullet", accessibilityDescription: nil)
         collapsedCount.stringValue = "\(count)"
         if let first = itemsView.urls.first { collapsedIcon.image = NSWorkspace.shared.icon(forFile: first.path) }
@@ -249,7 +250,7 @@ final class FloatItemsView: NSView, NSDraggingSource, QLPreviewPanelDataSource, 
         super.init(frame: frame)
         registerForDraggedTypes([.fileURL])
         setAccessibilityRole(.list)
-        setAccessibilityLabel("Float files")
+        setAccessibilityLabel(String(localized: "Float files"))
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
@@ -470,7 +471,7 @@ final class FloatItemsView: NSView, NSDraggingSource, QLPreviewPanelDataSource, 
         var copies: [URL] = []
         for url in selectedURLs {
             let ext = url.pathExtension
-            let target = OutputNaming.unique(in: url.deletingLastPathComponent(), base: "\(url.deletingPathExtension().lastPathComponent) copy", extension: ext.isEmpty ? nil : ext)
+            let target = OutputNaming.unique(in: url.deletingLastPathComponent(), base: String(localized: "\(url.deletingPathExtension().lastPathComponent) copy", comment: "Name of a duplicated file"), extension: ext.isEmpty ? nil : ext)
             if (try? FileManager.default.copyItem(at: url, to: target)) != nil { copies.append(target) }
         }
         add(copies)
@@ -497,11 +498,11 @@ final class FloatItemsView: NSView, NSDraggingSource, QLPreviewPanelDataSource, 
         if let i = index(at: point), !selection.contains(i) { selection = [i]; anchor = i; needsDisplay = true }
         guard !selection.isEmpty else { return nil }
         let menu = NSMenu()
-        menu.addItem(withTitle: "Open", action: #selector(openSelection), keyEquivalent: "").target = self
-        let openWith = NSMenuItem(title: "Open With", action: nil, keyEquivalent: "")
+        menu.addItem(withTitle: String(localized: "Open"), action: #selector(openSelection), keyEquivalent: "").target = self
+        let openWith = NSMenuItem(title: String(localized: "Open With"), action: nil, keyEquivalent: "")
         let submenu = NSMenu()
         let apps = selectedURLs.first.map { NSWorkspace.shared.urlsForApplications(toOpen: $0) } ?? []
-        if apps.isEmpty { submenu.addItem(withTitle: "No Applications Available", action: nil, keyEquivalent: "").isEnabled = false }
+        if apps.isEmpty { submenu.addItem(withTitle: String(localized: "No Applications Available"), action: nil, keyEquivalent: "").isEnabled = false }
         for app in apps.prefix(15) {
             let item = NSMenuItem(title: FileManager.default.displayName(atPath: app.path), action: #selector(self.openWith(_:)), keyEquivalent: "")
             item.representedObject = app
@@ -512,14 +513,14 @@ final class FloatItemsView: NSView, NSDraggingSource, QLPreviewPanelDataSource, 
         }
         openWith.submenu = submenu
         menu.addItem(openWith)
-        menu.addItem(withTitle: "Quick Look", action: #selector(showQuickLook), keyEquivalent: " ").target = self
-        menu.addItem(withTitle: "Show in Finder", action: #selector(showInFinder), keyEquivalent: "").target = self
+        menu.addItem(withTitle: String(localized: "Quick Look"), action: #selector(showQuickLook), keyEquivalent: " ").target = self
+        menu.addItem(withTitle: String(localized: "Show in Finder"), action: #selector(showInFinder), keyEquivalent: "").target = self
         menu.addItem(.separator())
-        menu.addItem(withTitle: "Copy", action: #selector(copySelection), keyEquivalent: "c").target = self
-        menu.addItem(withTitle: "Duplicate", action: #selector(duplicateSelection), keyEquivalent: "").target = self
-        menu.addItem(withTitle: "Move to Trash", action: #selector(trashSelection), keyEquivalent: "").target = self
+        menu.addItem(withTitle: String(localized: "Copy"), action: #selector(copySelection), keyEquivalent: "c").target = self
+        menu.addItem(withTitle: String(localized: "Duplicate"), action: #selector(duplicateSelection), keyEquivalent: "").target = self
+        menu.addItem(withTitle: String(localized: "Move to Trash"), action: #selector(trashSelection), keyEquivalent: "").target = self
         menu.addItem(.separator())
-        menu.addItem(withTitle: "Remove from Float", action: #selector(removeSelection), keyEquivalent: "").target = self
+        menu.addItem(withTitle: String(localized: "Remove from Float"), action: #selector(removeSelection), keyEquivalent: "").target = self
         return menu
     }
 
@@ -550,7 +551,7 @@ final class FloatItemsView: NSView, NSDraggingSource, QLPreviewPanelDataSource, 
         return urls.enumerated().map { i, url in
             let element = NSAccessibilityElement()
             element.setAccessibilityRole(.staticText)
-            element.setAccessibilityLabel(url.lastPathComponent + (selection.contains(i) ? ", selected" : ""))
+            element.setAccessibilityLabel(selection.contains(i) ? String(localized: "\(url.lastPathComponent), selected") : url.lastPathComponent)
             element.setAccessibilityParent(self)
             element.setAccessibilityFrameInParentSpace(rects[i])
             return element

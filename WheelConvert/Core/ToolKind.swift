@@ -11,7 +11,9 @@ enum ToolKind: String, CaseIterable, Codable, Identifiable {
 
     var id: String { rawValue }
 
-    var title: String {
+    var title: String { String(localized: titleKey) }
+
+    private var titleKey: String.LocalizationValue {
         switch self {
         case .compress: "Compress"
         case .removeMetadata: "Edit Metadata"
@@ -45,7 +47,9 @@ enum ToolKind: String, CaseIterable, Codable, Identifiable {
         }
     }
 
-    var wheelLabel: String {
+    var wheelLabel: String { String(localized: wheelLabelKey) }
+
+    private var wheelLabelKey: String.LocalizationValue {
         switch self {
         case .compress: "COMPRESS"
         case .removeMetadata: "METADATA"
@@ -107,7 +111,9 @@ enum ToolKind: String, CaseIterable, Codable, Identifiable {
     }
 
     /// Status shown in the progress window while the tool runs.
-    var progressTitle: String {
+    var progressTitle: String { String(localized: progressTitleKey) }
+
+    private var progressTitleKey: String.LocalizationValue {
         switch self {
         case .compress: "Compressing"
         case .removeMetadata: "Saving metadata"
@@ -197,7 +203,9 @@ enum FileAction: String, CaseIterable, Codable, Identifiable {
 
     var id: String { rawValue }
 
-    var title: String {
+    var title: String { String(localized: titleKey) }
+
+    private var titleKey: String.LocalizationValue {
         switch self {
         case .airDrop: "AirDrop"
         case .float: "Float"
@@ -221,7 +229,9 @@ enum FileAction: String, CaseIterable, Codable, Identifiable {
         }
     }
 
-    var detail: String {
+    var detail: String { String(localized: detailKey) }
+
+    private var detailKey: String.LocalizationValue {
         switch self {
         case .airDrop: "Share files and folders with AirDrop"
         case .float: "Keep files in a floating shelf"

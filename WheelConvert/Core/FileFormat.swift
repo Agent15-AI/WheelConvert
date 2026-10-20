@@ -6,7 +6,9 @@ enum FormatCategory: String, CaseIterable, Codable, Identifiable {
 
     var id: String { rawValue }
 
-    var title: String {
+    var title: String { String(localized: titleKey) }
+
+    private var titleKey: String.LocalizationValue {
         switch self {
         case .images: "Images"
         case .video: "Video"
@@ -56,12 +58,12 @@ enum FileFormat: String, CaseIterable, Codable, Identifiable {
         case .md: "Markdown"
         case .opus: "Opus"
         case .webm: "WebM"
-        case .textClipping: "Text Clipping"
+        case .textClipping: String(localized: "Text Clipping")
         case .gzip: "GZIP"
         case .sevenZip: "7Z"
         case .pages: "Pages"
-        case .raw: "Camera RAW"
-        case .mobi: "Kindle Book"
+        case .raw: String(localized: "Camera RAW")
+        case .mobi: String(localized: "Kindle Book")
         case .kindle: "Kindle"
         default: rawValue.uppercased()
         }

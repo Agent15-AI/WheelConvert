@@ -30,7 +30,7 @@ enum MOBIReader {
         guard !doc.blocks.isEmpty else { throw WheelError("The Kindle book has no readable text.") }
         // The cover lives outside the text; books that don't already open with it get it first.
         if case .image = doc.blocks[0] {} else if let cover = book.cover() {
-            doc.blocks.insert(contentsOf: [.image(.init(data: cover, alt: "Cover")), .pageBreak], at: 0)
+            doc.blocks.insert(contentsOf: [.image(.init(data: cover, alt: String(localized: "Cover"))), .pageBreak], at: 0)
         }
         return doc
     }

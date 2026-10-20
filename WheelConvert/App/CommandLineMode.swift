@@ -137,7 +137,7 @@ extension CommandLineMode {
         defer { preview.stop() }
         let started = Date()
         await preview.load(video: true)
-        guard let player = preview.player else { throw WheelError(preview.error ?? "No player.") }
+        guard let player = preview.player else { throw WheelError(verbatim: preview.error ?? "No player.") }
         player.play()
         try await waitUntil(player, passes: 0.25, preview: preview)
         print(String(format: "PLAYING:%.2f", Date().timeIntervalSince(started)))
@@ -153,7 +153,7 @@ extension CommandLineMode {
     private static func waitUntil(_ player: AVPlayer, passes seconds: Double, preview: MediaPreview) async throws {
         let deadline = Date().addingTimeInterval(30)
         while player.currentTime().seconds < seconds {
-            if let error = preview.error { throw WheelError(error) }
+            if let error = preview.error { throw WheelError(verbatim: error) }
             guard Date() < deadline else { throw WheelError("The preview did not start playing within 30 seconds.") }
             try await Task.sleep(nanoseconds: 20_000_000)
         }

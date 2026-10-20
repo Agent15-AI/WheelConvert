@@ -4,19 +4,20 @@ import Combine
 enum WheelTheme: String, CaseIterable, Codable, Identifiable {
     case glass, solid
     var id: String { rawValue }
-    var title: String { self == .glass ? "Glass" : "Solid" }
+    var title: String { self == .glass ? String(localized: "Glass") : String(localized: "Solid") }
 }
 
 enum FloatBehavior: String, CaseIterable, Codable, Identifiable {
     case createNew, addToExisting
     var id: String { rawValue }
-    var title: String { self == .createNew ? "Create a New Float" : "Add Files to an Existing Float" }
+    var title: String { self == .createNew ? String(localized: "Create a New Float") : String(localized: "Add Files to an Existing Float") }
 }
 
 enum SaveDestination: String, CaseIterable, Codable, Identifiable {
     case besideOriginal, ask, folder
     var id: String { rawValue }
-    var title: String {
+    var title: String { String(localized: titleKey) }
+    private var titleKey: String.LocalizationValue {
         switch self {
         case .besideOriginal: "Next to the Original"
         case .ask: "Ask Each Time"
@@ -168,8 +169,9 @@ final class AppSettings: ObservableObject {
 enum CompressionStrength: String, Codable, CaseIterable, Identifiable {
     case light, balanced, strong
     var id: String { rawValue }
-    var title: String { rawValue.capitalized }
-    var detail: String {
+    var title: String { self == .light ? String(localized: "strength.light", defaultValue: "Light", comment: "Mild compression") : self == .balanced ? String(localized: "Balanced") : String(localized: "Strong") }
+    var detail: String { String(localized: detailKey) }
+    private var detailKey: String.LocalizationValue {
         switch self {
         case .light: "Better visual quality with moderate file-size savings."
         case .balanced: "Smaller files with little visible quality loss."
@@ -197,10 +199,10 @@ extension NSEvent.ModifierFlags {
 
     var names: String {
         var parts: [String] = []
-        if contains(.control) { parts.append("Control") }
-        if contains(.option) { parts.append("Option") }
-        if contains(.shift) { parts.append("Shift") }
-        if contains(.command) { parts.append("Command") }
+        if contains(.control) { parts.append(String(localized: "Control", comment: "Modifier key name")) }
+        if contains(.option) { parts.append(String(localized: "Option", comment: "Modifier key name")) }
+        if contains(.shift) { parts.append(String(localized: "Shift", comment: "Modifier key name")) }
+        if contains(.command) { parts.append(String(localized: "Command", comment: "Modifier key name")) }
         return parts.joined(separator: " + ")
     }
 }

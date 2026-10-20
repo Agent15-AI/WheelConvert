@@ -20,26 +20,33 @@ struct ToolFrame<Content: View>: View {
             content
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             Divider()
-            HStack(spacing: 10) {
-                if let reset {
-                    Button("Reset", action: reset).help("Restore this tool’s default settings")
-                }
-                if let note {
-                    Text(note).font(.callout).foregroundStyle(.secondary).lineLimit(2).fixedSize(horizontal: false, vertical: true)
-                }
-                Spacer()
-                Button("Cancel", action: cancel).keyboardShortcut(.cancelAction)
-                Button(primary, action: apply).keyboardShortcut(.defaultAction).disabled(!canApply)
+            // One row when it fits; otherwise (longer translations) the note moves above the buttons.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 10) { resetButton; noteText; Spacer(); actions }
+                VStack(alignment: .leading, spacing: 8) { noteText; HStack(spacing: 10) { resetButton; Spacer(); actions } }
             }
             .padding(.horizontal, 18)
             .padding(.vertical, 12)
         }
     }
+
+    @ViewBuilder private var resetButton: some View {
+        if let reset { Button("Reset", action: reset).help("Restore this tool’s default settings") }
+    }
+
+    @ViewBuilder private var noteText: some View {
+        if let note { Text(note).font(.callout).foregroundStyle(.secondary).lineLimit(2).fixedSize(horizontal: false, vertical: true) }
+    }
+
+    @ViewBuilder private var actions: some View {
+        Button("Cancel", action: cancel).keyboardShortcut(.cancelAction)
+        Button(primary, action: apply).keyboardShortcut(.defaultAction).disabled(!canApply)
+    }
 }
 
 struct SectionTitle: View {
     let text: String
-    init(_ text: String) { self.text = text }
+    init(_ text: String.LocalizationValue) { self.text = String(localized: text) }
     var body: some View {
         Text(text.uppercased()).font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary).padding(.top, 6)
     }
@@ -47,7 +54,7 @@ struct SectionTitle: View {
 
 /// Slider with a title and value read-out; double-click the title to reset.
 struct LabeledSlider: View {
-    let title: String
+    let title: LocalizedStringKey
     @Binding var value: Double
     var range: ClosedRange<Double> = -100...100
     var step: Double? = nil
@@ -91,7 +98,7 @@ enum TimeText {
 
 /// Editable "m:ss.mmm" field.
 struct TimeField: View {
-    let label: String
+    let label: String.LocalizationValue
     @Binding var seconds: Double
     var range: ClosedRange<Double>
     @State private var text = ""
@@ -99,14 +106,14 @@ struct TimeField: View {
 
     var body: some View {
         HStack(spacing: 4) {
-            Text(label).foregroundStyle(.secondary)
-            TextField(label, text: $text)
+            Text(String(localized: label)).foregroundStyle(.secondary)
+            TextField(String(localized: label), text: $text)
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 92)
                 .monospacedDigit()
                 .focused($focused)
                 .onSubmit(commit)
-                .accessibilityLabel("\(label) time in seconds")
+                .accessibilityLabel("\(String(localized: label)) time in seconds")
         }
         .onAppear { text = TimeText.format(seconds) }
         .onChange(of: seconds) { value in if !focused { text = TimeText.format(value) } }
@@ -202,7 +209,7 @@ final class MediaPreview: ObservableObject {
             if stream != nil { player.currentItem?.preferredForwardBufferDuration = 16 }
             statusObserver = player.currentItem?.observe(\.status) { [weak self] item, _ in
                 guard item.status == .failed else { return }
-                Task { @MainActor in self?.error = "This file can’t be previewed." }
+                Task { @MainActor in self?.error = String(localized: "This file can’t be previewed.") }
             }
             self.player = player
             // Weak captures: the player retains this block, so a strong one would keep it (and its audio) alive.

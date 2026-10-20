@@ -192,7 +192,7 @@ enum PDFConverter {
             guard let image = PDFStructureReader.render(page, scale: scale) else {
                 throw WheelError("Could not create the PDF page image.")
             }
-            let name = count == 1 ? OutputNaming.sanitize(base) : "\(OutputNaming.sanitize(base)) - Page \(index + 1)"
+            let name = count == 1 ? OutputNaming.sanitize(base) : String(localized: "\(OutputNaming.sanitize(base)) - Page \(index + 1)", comment: "File name of one page saved as an image")
             let url = staging.appendingPathComponent(name + "." + format.fileExtension)
             let loaded = LoadedImage(cgImage: image, metadata: nil, dpi: Double(scale * 72))
             try ImageConverter.write(loaded, as: format, quality: .high, keepMetadata: false, to: url)
@@ -233,7 +233,7 @@ enum PDFConverter {
             for (i, page) in pages.enumerated() {
                 if i > 0 { doc.blocks.append(.pageBreak) }
                 let fit = min(1, (page.width - 36) / page.width)
-                doc.blocks.append(.image(.init(data: page.data, width: page.width * fit, height: page.height * fit, alt: "Page \(i + 1)")))
+                doc.blocks.append(.image(.init(data: page.data, width: page.width * fit, height: page.height * fit, alt: String(localized: "Page \(i + 1)"))))
             }
             try PagesBridge.write(doc).write(to: destination)
         default:
@@ -290,7 +290,7 @@ enum DocumentConverter {
         case .pages:
             try PagesBridge.write(doc).write(to: destination)
         case .md:
-            let folderName = OutputNaming.baseName(of: destination) + " images"
+            let folderName = String(localized: "\(OutputNaming.baseName(of: destination)) images", comment: "Folder for a Markdown file's pictures")
             var writer = MarkdownWriter(imageFolder: folderName)
             try writer.write(doc).write(to: destination, atomically: false, encoding: .utf8)
             if !writer.images.isEmpty {

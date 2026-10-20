@@ -55,8 +55,8 @@ struct TrimView: View {
     private var duration: Double { shortest ?? preview.duration }
 
     var body: some View {
-        ToolFrame(primary: urls.count == 1 ? "Save Trimmed Copy" : "Trim \(urls.count) Files", canApply: duration > 0 && range.upperBound - range.lowerBound >= 0.05,
-                  note: urls.count > 1 ? "Range applies to all files, up to the shortest file’s duration." : "Keeps \(TimeText.format(range.upperBound - range.lowerBound)).",
+        ToolFrame(primary: urls.count == 1 ? String(localized: "Save Trimmed Copy") : String(localized: "Trim \(urls.count) Files"), canApply: duration > 0 && range.upperBound - range.lowerBound >= 0.05,
+                  note: urls.count > 1 ? String(localized: "Range applies to all files, up to the shortest file’s duration.") : String(localized: "Keeps \(TimeText.format(range.upperBound - range.lowerBound))."),
                   reset: isAudio ? { ToolMemory.forget(.trimAudio); autoSilence = false; threshold = -45 } : nil,
                   cancel: { preview.stop(); close() }, apply: {
                       // Only the silence settings carry over; the range belongs to these files.
@@ -137,7 +137,7 @@ struct CropVideoView: View {
     private var rect: CGRect { rects.first ?? CGRect(x: 0, y: 0, width: 1, height: 1) }
 
     var body: some View {
-        ToolFrame(primary: "Save Cropped Video", canApply: rect.width > 0.01 && rect.height > 0.01, note: "The original audio is kept.",
+        ToolFrame(primary: String(localized: "Save Cropped Video"), canApply: rect.width > 0.01 && rect.height > 0.01, note: String(localized: "The original audio is kept."),
                   reset: { ToolMemory.forget(.cropVideo); aspect = nil }, cancel: { preview.stop(); close() }, apply: {
             ToolMemory.save(Memory(aspect: aspect), for: .cropVideo)
             apply(.init(x: rect.minX, y: rect.minY, width: rect.width, height: rect.height))
@@ -193,7 +193,7 @@ struct SpeedView: View {
     }
 
     var body: some View {
-        ToolFrame(primary: "Save at \(label)", canApply: options.factor != 1, note: preview.duration > 0 ? "New length: \(TimeText.format(preview.duration / options.factor, millis: false))" : nil,
+        ToolFrame(primary: String(localized: "Save at \(label)"), canApply: options.factor != 1, note: preview.duration > 0 ? String(localized: "New length: \(TimeText.format(preview.duration / options.factor, millis: false))") : nil,
                   reset: { ToolMemory.forget(.changeVideoSpeed); options = ToolOptions.Speed() },
                   cancel: { preview.stop(); close() }, apply: { ToolMemory.save(options, for: .changeVideoSpeed); apply(options) }) {
             VStack(spacing: 12) {
@@ -248,7 +248,7 @@ struct SnapshotsView: View {
     }
 
     var body: some View {
-        ToolFrame(primary: times.count <= 1 ? "Save Frame" : "Save \(times.count) Frames", canApply: !times.isEmpty, note: "Full-resolution PNGs.",
+        ToolFrame(primary: times.count <= 1 ? String(localized: "Save Frame") : String(localized: "Save \(times.count) Frames"), canApply: !times.isEmpty, note: String(localized: "Full-resolution PNGs."),
                   cancel: { preview.stop(); close() }, apply: { apply(.init(times: times)) }) {
             HStack(spacing: 0) {
                 VStack(spacing: 8) {
@@ -313,8 +313,8 @@ struct SplitVideoView: View {
     private var clips: [(Double, Double)] { MediaTools.clips(points: points, duration: preview.duration) }
 
     var body: some View {
-        ToolFrame(primary: !removed.isEmpty ? "Export One Video" : clips.count >= 2 ? "Export \(clips.count) Clips" : "Export Clips", canApply: clips.count >= 2 && removed.count < clips.count,
-                  note: clips.count < 2 ? "Add split points at the playhead or split evenly." : removed.isEmpty ? "Every clip is saved in one folder. Remove clips to join the rest instead." : "Removed clips are cut; the rest are joined.",
+        ToolFrame(primary: !removed.isEmpty ? String(localized: "Export One Video") : clips.count >= 2 ? String(localized: "Export \(clips.count) Clips") : String(localized: "Export Clips"), canApply: clips.count >= 2 && removed.count < clips.count,
+                  note: clips.count < 2 ? String(localized: "Add split points at the playhead or split evenly.") : removed.isEmpty ? String(localized: "Every clip is saved in one folder. Remove clips to join the rest instead.") : String(localized: "Removed clips are cut; the rest are joined."),
                   reset: { ToolMemory.forget(.splitVideo); parts = 2 },
                   cancel: { preview.stop(); close() }, apply: {
                       ToolMemory.save(parts, for: .splitVideo)
@@ -383,7 +383,7 @@ struct RedactVideoView: View {
     }
 
     var body: some View {
-        ToolFrame(primary: "Save Redacted Copy", canApply: !rects.isEmpty, note: rects.isEmpty ? "Drag on the video to cover an area." : style == .blur ? "Blur softens details. Use Solid for sensitive information." : nil,
+        ToolFrame(primary: String(localized: "Save Redacted Copy"), canApply: !rects.isEmpty, note: rects.isEmpty ? String(localized: "Drag on the video to cover an area.") : style == .blur ? String(localized: "Blur softens details. Use Solid for sensitive information.") : nil,
                   reset: { ToolMemory.forget(.redactVideo); style = .solid },
                   cancel: { preview.stop(); close() }, apply: {
                       ToolMemory.save(ToolOptions.Redact(style: style), for: .redactVideo)
@@ -458,7 +458,7 @@ struct NormalizeView: View {
     @State private var measured: String?
 
     var body: some View {
-        ToolFrame(primary: urls.count == 1 ? "Save Normalized Copy" : "Normalize \(urls.count) Files", note: urls.count > 1 ? "Settings apply to every selected file." : nil,
+        ToolFrame(primary: urls.count == 1 ? String(localized: "Save Normalized Copy") : String(localized: "Normalize \(urls.count) Files"), note: urls.count > 1 ? String(localized: "Settings apply to every selected file.") : nil,
                   reset: { ToolMemory.forget(.normalizeAudio); options = ToolOptions.Normalize() },
                   cancel: close, apply: { ToolMemory.save(options, for: .normalizeAudio); apply(options) }) {
             Form {
@@ -473,7 +473,7 @@ struct NormalizeView: View {
                 LabeledSlider(title: "True peak", value: $options.truePeak, range: -9...0, step: 0.1, format: { String(format: "%.1f dBTP", $0) }, neutral: -1.5, valueWidth: 84)
                 Text("−16 LUFS is a balanced default for spoken audio and music. The true peak limit helps prevent clipping after encoding.")
                     .font(.callout).foregroundStyle(.secondary)
-                LabeledContent("Current loudness", value: measured ?? "Measuring…")
+                LabeledContent("Current loudness", value: measured ?? String(localized: "Measuring…"))
             }
             .formStyle(.grouped)
         }
@@ -481,8 +481,8 @@ struct NormalizeView: View {
             guard let log = try? await FFmpeg.analyze(["-i", urls[0].path, "-map", "0:a:0", "-af", "loudnorm=print_format=json", "-f", "null", "-"]),
                   let open = log.lastIndex(of: "{"), let close = log.lastIndex(of: "}"),
                   let json = try? JSONSerialization.jsonObject(with: Data(log[open...close].utf8)) as? [String: String],
-                  let input = json["input_i"], let peak = json["input_tp"] else { measured = "Unavailable"; return }
-            measured = "\(input) LUFS, peak \(peak) dBTP"
+                  let input = json["input_i"], let peak = json["input_tp"] else { measured = String(localized: "Unavailable"); return }
+            measured = String(localized: "\(input) LUFS, peak \(peak) dBTP")
         }
     }
 }
@@ -509,7 +509,7 @@ struct VisualizerView: View {
     }
 
     var body: some View {
-        ToolFrame(primary: "Create Visualization", canApply: options.style == .waveform || options.imagePath != nil, note: "Saves an MP4 next to the audio.", reset: {
+        ToolFrame(primary: String(localized: "Create Visualization"), canApply: options.style == .waveform || options.imagePath != nil, note: String(localized: "Saves an MP4 next to the audio."), reset: {
             ToolMemory.forget(.audioToVideo)
             options = ToolOptions.Visualizer()
             color = Color(hex: options.color)
@@ -569,8 +569,8 @@ struct ChannelsView: View {
     }
 
     var body: some View {
-        ToolFrame(primary: options.channels == 1 ? "Save Mono Copy" : "Save Stereo Copy", canApply: preview.info?.hasAudio ?? true,
-                  note: preview.info.map { "Source: \($0.audioChannels == 1 ? "mono" : "\($0.audioChannels) channels")" }, reset: { ToolMemory.forget(.audioChannels); options = ToolOptions.Channels() },
+        ToolFrame(primary: options.channels == 1 ? String(localized: "Save Mono Copy") : String(localized: "Save Stereo Copy"), canApply: preview.info?.hasAudio ?? true,
+                  note: preview.info.map { $0.audioChannels == 1 ? String(localized: "Source: mono") : String(localized: "Source: \($0.audioChannels) channels") }, reset: { ToolMemory.forget(.audioChannels); options = ToolOptions.Channels() },
                   cancel: { preview.stop(); close() }, apply: { ToolMemory.save(options, for: .audioChannels); apply(options) }) {
             Form {
                 Picker("Output", selection: $options.channels) {
@@ -598,7 +598,7 @@ struct ChannelsView: View {
         if channel < preview.waveform.count {
             WaveformShape(samples: preview.waveform[channel].map { $0 * Float(channel == 0 ? options.leftVolume : options.rightVolume) / 2 })
                 .fill(Color(nsColor: Brand.accent).opacity(0.8)).frame(height: 44)
-                .accessibilityLabel("\(channel == 0 ? "Left" : "Right") channel waveform")
+                .accessibilityLabel(channel == 0 ? "Left channel waveform" : "Right channel waveform")
         }
     }
 
@@ -625,7 +625,7 @@ struct BleepView: View {
     }
 
     var body: some View {
-        ToolFrame(primary: "Save Bleeped Copy", canApply: !ranges.isEmpty, note: "Each range is replaced with a 1 kHz tone.", cancel: { preview.stop(); close() }, apply: {
+        ToolFrame(primary: String(localized: "Save Bleeped Copy"), canApply: !ranges.isEmpty, note: String(localized: "Each range is replaced with a 1 kHz tone."), cancel: { preview.stop(); close() }, apply: {
             apply(.init(ranges: ranges.map { [$0.lowerBound, $0.upperBound] }))
         }) {
             VStack(spacing: 10) {

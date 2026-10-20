@@ -6,13 +6,14 @@ struct ConversionOptions: Codable, Equatable {
     enum Quality: String, Codable, CaseIterable, Identifiable {
         case compact, balanced, high
         var id: String { rawValue }
-        var title: String { rawValue.capitalized }
+        var title: String { self == .compact ? String(localized: "Compact") : self == .balanced ? String(localized: "Balanced") : String(localized: "High") }
     }
 
     enum SampleDepth: String, Codable, CaseIterable, Identifiable {
         case matchSource, bit16, bit24, bit32, float32
         var id: String { rawValue }
-        var title: String {
+        var title: String { String(localized: titleKey) }
+        private var titleKey: String.LocalizationValue {
             switch self {
             case .matchSource: "Match Source"
             case .bit16: "16-bit"
@@ -26,15 +27,16 @@ struct ConversionOptions: Codable, Equatable {
     enum ArchiveCompression: String, Codable, CaseIterable, Identifiable {
         case fast, balanced, maximum
         var id: String { rawValue }
-        var title: String { rawValue.capitalized }
+        var title: String { self == .fast ? String(localized: "Fast") : self == .balanced ? String(localized: "Balanced") : String(localized: "Maximum") }
         var level: Int { self == .fast ? 1 : self == .balanced ? 6 : 9 }
     }
 
     enum EPUBLayout: String, Codable, CaseIterable, Identifiable {
         case adjustableText, preservePages
         var id: String { rawValue }
-        var title: String { self == .adjustableText ? "Adjustable Text" : "Preserve Pages" }
-        var detail: String {
+        var title: String { self == .adjustableText ? String(localized: "Adjustable Text") : String(localized: "Preserve Pages") }
+        var detail: String { String(localized: detailKey) }
+        private var detailKey: String.LocalizationValue {
             switch self {
             case .adjustableText: "Reflowable, selectable text with headings and tables. Illustrations and complex equations stay as artwork."
             case .preservePages: "A fixed-layout book of page images. Text can't be resized, selected, or searched."
@@ -45,8 +47,9 @@ struct ConversionOptions: Codable, Equatable {
     enum OfficeLayout: String, Codable, CaseIterable, Identifiable {
         case editable, preservePages
         var id: String { rawValue }
-        var title: String { self == .editable ? "Editable Text" : "Preserve Pages" }
-        var detail: String {
+        var title: String { self == .editable ? String(localized: "Editable Text") : String(localized: "Preserve Pages") }
+        var detail: String { String(localized: detailKey) }
+        private var detailKey: String.LocalizationValue {
             switch self {
             case .editable: "Text you can edit: paragraphs, headings and tables in documents; text boxes over the page artwork in PowerPoint. Scanned pages are read with OCR in documents."
             case .preservePages: "Every page kept as a sharp image, including tables, equations, and scans. Text can't be edited."

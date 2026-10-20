@@ -24,10 +24,10 @@ struct CompressView: View {
     private var problem: String? {
         switch options.mode {
         case .fileSize:
-            guard let target = targetBytes, target >= 1_000 else { return "Enter a target size of at least 1 KB." }
-            if target >= smallest { return "Target size cannot exceed the original file size." }
+            guard let target = targetBytes, target >= 1_000 else { return String(localized: "Enter a target size of at least 1 KB.") }
+            if target >= smallest { return String(localized: "Target size cannot exceed the original file size.") }
         case .percentage:
-            if !(1...99).contains(options.reduction) { return "Choose a reduction from 1% to 99%." }
+            if !(1...99).contains(options.reduction) { return String(localized: "Choose a reduction from 1% to 99%.") }
         case .preset: break
         }
         return nil
@@ -42,8 +42,8 @@ struct CompressView: View {
     }
 
     var body: some View {
-        ToolFrame(primary: urls.count == 1 ? "Save Compressed Copy" : "Compress \(urls.count) Files", canApply: problem == nil,
-                  note: problem ?? "Originals stay unchanged.", reset: {
+        ToolFrame(primary: urls.count == 1 ? String(localized: "Save Compressed Copy") : String(localized: "Compress \(urls.count) Files"), canApply: problem == nil,
+                  note: problem ?? String(localized: "Originals stay unchanged."), reset: {
                       ToolMemory.forget(.compress, variant: variant)
                       options = defaults
                       showTarget(nil)
@@ -132,8 +132,8 @@ struct MetadataView: View {
     }
 
     var body: some View {
-        ToolFrame(primary: removeAll ? "Remove Metadata" : "Save Edited Copy", canApply: removeAll || !changes.isEmpty,
-                  note: removeAll ? "Remove metadata now and save a new file. The original stays unchanged." : (urls.count > 1 ? "Edits apply to every selected file." : nil),
+        ToolFrame(primary: removeAll ? String(localized: "Remove Metadata") : String(localized: "Save Edited Copy"), canApply: removeAll || !changes.isEmpty,
+                  note: removeAll ? String(localized: "Remove metadata now and save a new file. The original stays unchanged.") : (urls.count > 1 ? String(localized: "Edits apply to every selected file.") : nil),
                   reset: { ToolMemory.forget(.removeMetadata); removeAll = false },
                   cancel: close, apply: {
                       ToolMemory.save(removeAll, for: .removeMetadata)
@@ -180,7 +180,7 @@ struct MetadataView: View {
                 TextField(entry.key, text: Binding(get: { edits[entry.key] ?? entry.value }, set: { edits[entry.key] = $0 }))
                     .textFieldStyle(.roundedBorder)
             } else {
-                Text(removed.contains(entry.key) ? "Will be removed" : entry.value).textSelection(.enabled).lineLimit(3)
+                Text(removed.contains(entry.key) ? String(localized: "Will be removed") : entry.value).textSelection(.enabled).lineLimit(3)
                     .foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
             }
             if entry.editable {
@@ -206,8 +206,8 @@ enum QRResultsController {
     static func show(_ urls: [URL]) {
         let window = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 460, height: 360), styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
                              backing: .buffered, defer: false)
-        window.title = "QR Codes"
-        window.subtitle = urls.count == 1 ? urls[0].lastPathComponent : "\(urls.count) files"
+        window.title = String(localized: "QR Codes")
+        window.subtitle = urls.count == 1 ? urls[0].lastPathComponent : String(localized: "\(urls.count) files")
         window.isFloatingPanel = true
         window.isReleasedWhenClosed = false
         window.contentView = NSHostingView(rootView: QRResultsView(urls: urls) { window.close() })
@@ -247,10 +247,10 @@ struct QRResultsView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(code.payload).textSelection(.enabled).lineLimit(4)
                         HStack {
-                            Text(code.page.map { "\(code.source), page \($0)" } ?? code.source).font(.caption).foregroundStyle(.secondary)
+                            Text(code.page.map { String(localized: "\(code.source), page \($0)") } ?? code.source).font(.caption).foregroundStyle(.secondary)
                             Spacer()
                             if let url = URL(string: code.payload), ["http", "https"].contains(url.scheme?.lowercased() ?? "") {
-                                Button("Open") { NSWorkspace.shared.open(url) }.help("Open \(url.host ?? "link") in your browser")
+                                Button("Open") { NSWorkspace.shared.open(url) }.help("Open \(url.host ?? String(localized: "link")) in your browser")
                             }
                             Button(copied == code.id ? "Copied" : "Copy") {
                                 NSPasteboard.general.clearContents()

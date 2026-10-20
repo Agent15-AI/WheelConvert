@@ -36,7 +36,7 @@ enum OfficeHelper {
         }
         guard result.status == 0 else {
             let message = result.stderr.split(whereSeparator: \.isNewline).last.map(String.init) ?? ""
-            if result.status == 2, !message.isEmpty { throw WheelError(message) }
+            if result.status == 2, !message.isEmpty { throw WheelError(verbatim: Bundle.main.localizedString(forKey: message, value: message, table: nil)) }
             if message.contains("OutOfMemoryError") { throw WheelError("This document is too large to convert on this Mac.") }
             // Java exception names mean nothing to people; an unreadable input is by far the common cause.
             throw WheelError("The file couldn’t be read. It may be damaged, password-protected or in an unsupported format.")

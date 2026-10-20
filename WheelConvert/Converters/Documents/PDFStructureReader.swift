@@ -283,7 +283,7 @@ enum PDFStructureReader {
                 switch element {
                 case .image(let data, let rect):
                     flush()
-                    blocks.append(.image(.init(data: data, width: rect.width, height: rect.height, alt: "PDF illustration")))
+                    blocks.append(.image(.init(data: data, width: rect.width, height: rect.height, alt: String(localized: "PDF illustration"))))
                 case .line(let line):
                     let text = line.text.trimmingCharacters(in: .whitespaces)
                     var heading: Int?

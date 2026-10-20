@@ -20,7 +20,8 @@ struct OrganizePDFView: View {
     private var changed: Bool { equalWidths || pages.map(\.source) != original.map(\.source) || pages.contains { $0.rotation % 360 != 0 } }
 
     var body: some View {
-        ToolFrame(primary: "Save Organized PDF", canApply: !pages.isEmpty && changed, note: "Drag pages to reorder. \(pages.count) page\(pages.count == 1 ? "" : "s").",
+        ToolFrame(primary: String(localized: "Save Organized PDF"), canApply: !pages.isEmpty && changed,
+                  note: pages.count == 1 ? String(localized: "Drag pages to reorder. 1 page.") : String(localized: "Drag pages to reorder. \(pages.count) pages."),
                   cancel: close, apply: { apply(.init(pages: pages, equalWidths: equalWidths)) }) {
             VStack(spacing: 8) {
                 HStack {
@@ -50,7 +51,7 @@ struct OrganizePDFView: View {
             }
         }
         .task {
-            guard let doc = PDFDocument(url: url), !doc.isLocked else { error = "This PDF cannot be read or is password-protected."; return }
+            guard let doc = PDFDocument(url: url), !doc.isLocked else { error = String(localized: "This PDF cannot be read or is password-protected."); return }
             document = doc
             pages = original
             for i in 0..<doc.pageCount {
@@ -83,7 +84,8 @@ struct OrganizePDFView: View {
         }
         .onDrop(of: [UTType.plainText], delegate: PageDrop(target: page.id, pages: $pages, dragged: $dragged))
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Page \(index + 1)\(page.source != index ? ", originally page \(page.source + 1)" : "")\(page.rotation != 0 ? ", rotated \(page.rotation) degrees clockwise" : "")")
+        .accessibilityLabel(String(localized: "Page \(index + 1)") + (page.source != index ? String(localized: ", originally page \(page.source + 1)") : "")
+                                + (page.rotation != 0 ? String(localized: ", rotated \(page.rotation) degrees clockwise") : ""))
         .accessibilityAddTraits(selection == page.id ? .isSelected : [])
     }
 
@@ -144,8 +146,8 @@ struct SplitPDFView: View {
         let result = parts
         let count = (try? result.get()) ?? 0
         let message: String? = { if case .failure(let e) = result { return e.message }; return nil }()
-        ToolFrame(primary: "Split into \(count) PDF\(count == 1 ? "" : "s")", canApply: count >= 1 && pageCount > 0,
-                  note: message ?? "The parts are saved in one folder next to the PDF.",
+        ToolFrame(primary: count == 1 ? String(localized: "Split into 1 PDF") : String(localized: "Split into \(count) PDFs"), canApply: count >= 1 && pageCount > 0,
+                  note: message ?? String(localized: "The parts are saved in one folder next to the PDF."),
                   reset: { ToolMemory.forget(.splitPDF); options = ToolOptions.SplitPDF() },
                   cancel: close, apply: { ToolMemory.save(options, for: .splitPDF); apply(options) }) {
             Form {

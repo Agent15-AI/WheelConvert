@@ -275,6 +275,26 @@ err = None if r.returncode == 1 and "one kind at a time" in r.stderr else f"mixe
 print(f"{'OK  ' if not err else 'FAIL'} {'intent mixed kinds error':28} {err or ''}")
 if err: failures.append(("intent mixed kinds", err))
 
+# Localization: every string is translated (or marked as not needing it) with the same placeholders,
+# and the app answers in the language it's asked for.
+if not only or any("locali" in o for o in only):
+    catalog = json.load(open(os.path.join(ROOT, "WheelConvert/Resources/Localizable.xcstrings")))["strings"]
+    spec = re.compile(r"%(?:\d+\$)?(lld|@|lf|d)")
+    gaps = []
+    for key, entry in catalog.items():
+        if entry.get("shouldTranslate") is False: continue
+        locs = entry.get("localizations", {})
+        source = locs.get("en", {}).get("stringUnit", {}).get("value", key)
+        for lang in ["de", "fr", "es", "ja", "zh-Hans"]:
+            value = locs.get(lang, {}).get("stringUnit", {}).get("value")
+            if value is None or sorted(spec.findall(value)) != sorted(spec.findall(source)): gaps.append(f"{lang}: {key[:40]}")
+    r = subprocess.run([APP, "-AppleLanguages", "(de)", "--intent", "compress", "balanced", os.path.join(FIX, "sample.pdf"), os.path.join(FIX, "sample.jpg")],
+                       capture_output=True, text=True)
+    err = f"{len(gaps)} untranslated or mismatched: {gaps[:5]}" if gaps else None
+    if not err and "jeweils einer Art auf einmal" not in r.stderr: err = f"German error message missing: {r.stderr.strip()}"
+    print(f"{'OK  ' if not err else 'FAIL'} {'localization':28} {len(catalog)} strings {err or ''}")
+    if err: failures.append(("localization", err))
+
 # Watch folder: new files run through a preset once complete; hidden, partial and own results are skipped.
 if not only or any("watch" in o for o in only):
     folder = os.path.join(WORK, "watch"); os.makedirs(folder)

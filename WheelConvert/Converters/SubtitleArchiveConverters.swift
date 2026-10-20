@@ -216,6 +216,7 @@ enum ArchiveConverter {
             return WheelError("The archive is damaged or uses an unsupported format.")
         }
         let line = stderr.split(whereSeparator: \.isNewline).last.map(String.init) ?? ""
-        return WheelError(line.isEmpty ? "The archive could not be converted." : "The archive could not be converted: \(line.replacingOccurrences(of: "tar: ", with: ""))")
+        return line.isEmpty ? WheelError("The archive could not be converted.")
+            : WheelError("The archive could not be converted: \(line.replacingOccurrences(of: "tar: ", with: ""))")
     }
 }

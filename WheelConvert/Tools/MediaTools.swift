@@ -93,7 +93,7 @@ enum MediaTools {
         if let target, target >= original { throw WheelError("Target size cannot exceed the original file size.") }
         let container: FileFormat = options.videoFormat.flatMap { [.mp4, .mov, .mkv, .webm].contains($0) && format != .gif ? $0 : nil }
             ?? ([.mp4, .mov, .mkv, .webm, .gif].contains(format) ? format : .mp4)
-        let destination = output(source, suffix: "Compressed", format: container)
+        let destination = output(source, suffix: String(localized: "Compressed"), format: container)
 
         if container == .gif {
             let width = options.strength == .light ? 640 : options.strength == .balanced ? 480 : 360
@@ -175,7 +175,7 @@ enum MediaTools {
             bitrate = min(bitrate, 320)
         }
         let args = ["-i", source.path, "-map", "0:a:0", "-vn"] + audioEncoder(outputFormat, info: info, bitrate: bitrate)
-        let url = try await render(args, to: output(source, suffix: "Compressed", format: outputFormat), duration: info.duration, progress: progress)
+        let url = try await render(args, to: output(source, suffix: String(localized: "Compressed"), format: outputFormat), duration: info.duration, progress: progress)
         let target: Int64? = options.mode == .fileSize ? options.targetBytes : nil
         return try ensureSmaller(url, than: original, target: target)
     }
@@ -214,7 +214,7 @@ enum MediaTools {
         } else {
             args += ["-map", "0:v:0", "-map", "0:a?", "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p"] + videoEncoder(format, quality: 75)
         }
-        return try await render(args, to: output(source, suffix: "Trimmed"), duration: end - start, progress: progress)
+        return try await render(args, to: output(source, suffix: String(localized: "Trimmed")), duration: end - start, progress: progress)
     }
 
     /// Leading and trailing silence bounds from silencedetect.
@@ -249,7 +249,7 @@ enum MediaTools {
             args = ["-i", source.path, "-map", "0:v:0", "-map", "0:a?", "-vf", "crop=\(cw):\(ch):\(cx):\(cy),format=yuv420p"]
                 + videoCodecArgs(format, quality: 75) + audioArgs(for: format, info: info)
         }
-        return try await render(args, to: output(source, suffix: "Cropped"), duration: info.duration, progress: progress)
+        return try await render(args, to: output(source, suffix: String(localized: "Cropped")), duration: info.duration, progress: progress)
     }
 
     static func atempoChain(_ factor: Double) -> String {
@@ -279,13 +279,13 @@ enum MediaTools {
             }
             args += ["-filter_complex", filter, "-map", "[v]"] + (info.hasAudio ? ["-map", "[a]"] : []) + videoEncoder(format, quality: 72)
         }
-        return try await render(args, to: output(source, suffix: "\(label) Speed"), duration: info.duration / factor, progress: progress)
+        return try await render(args, to: output(source, suffix: String(localized: "\(label) Speed")), duration: info.duration / factor, progress: progress)
     }
 
     static func mute(_ source: URL, progress: @escaping (Double) -> Void) async throws -> URL {
         let info = try await MediaInfo.probe(source)
         guard info.hasAudio else { throw WheelError("This file has no audio track.") }
-        return try await render(["-i", source.path, "-map", "0", "-map", "-0:a", "-c", "copy"], to: output(source, suffix: "Muted"), duration: info.duration, progress: progress)
+        return try await render(["-i", source.path, "-map", "0", "-map", "-0:a", "-c", "copy"], to: output(source, suffix: String(localized: "Muted")), duration: info.duration, progress: progress)
     }
 
     /// The container each audio codec can be copied into untouched.
@@ -305,7 +305,7 @@ enum MediaTools {
             (format, codec) = (.m4a, ["-c:a", "aac_at", "-b:a", "256k"])
         }
         let args = ["-i", source.path, "-map", "0:a:0", "-vn", "-sn", "-dn"] + codec
-        return try await render(args, to: output(source, suffix: "Audio", format: format), duration: info.duration, progress: progress)
+        return try await render(args, to: output(source, suffix: String(localized: "Audio"), format: format), duration: info.duration, progress: progress)
     }
 
     // MARK: Join
@@ -335,7 +335,7 @@ enum MediaTools {
         }
         filter += "\(inputs)concat=n=\(sources.count):v=1:a=1[v][a]"
         args += ["-filter_complex", filter, "-map", "[v]", "-map", "[a]"] + videoEncoder(.mp4, quality: 72)
-        let destination = OutputNaming.unique(in: Publisher.destinationDirectory(for: sources[0]), base: "Joined Video", extension: "mp4")
+        let destination = OutputNaming.unique(in: Publisher.destinationDirectory(for: sources[0]), base: String(localized: "Joined Video"), extension: "mp4")
         return try await render(args, to: destination, duration: infos.map(\.duration).reduce(0, +), progress: progress)
     }
 
@@ -348,7 +348,7 @@ enum MediaTools {
         return try await Publisher.publish(for: source) { staging in
             var files: [URL] = []
             for (i, time) in times.enumerated() {
-                let name = String(format: "Frame %03d - %.3fs.png", i + 1, time)
+                let name = String(localized: "Frame \(String(format: "%03d", i + 1)) - \(String(format: "%.3f", time))s", comment: "File name of a saved video frame") + ".png"
                 let file = staging.url.appendingPathComponent(name)
                 try await FFmpeg.run(["-ss", String(format: "%.3f", time), "-i", source.path, "-frames:v", "1", "-update", "1", file.path], duration: 0) { _ in }
                 guard FileManager.default.fileExists(atPath: file.path) else { throw WheelError("No frame is available at this time. Choose an earlier frame.") }
@@ -391,7 +391,7 @@ enum MediaTools {
             if format == .gif { filter = filter.replacingOccurrences(of: "[v]", with: "[vc]") + ";[vc]split[x][y];[x]palettegen[p];[y][p]paletteuse[v]" }
             var args = ["-i", source.path, "-filter_complex", filter, "-map", "[v]"] + (info.hasAudio ? ["-map", "[a]"] : [])
             args += format == .gif ? ["-loop", "0"] : videoEncoder(format, quality: 75)
-            return try await render(args, to: output(source, suffix: "Edited"), duration: kept.map { $0.1 - $0.0 }.reduce(0, +), progress: progress)
+            return try await render(args, to: output(source, suffix: String(localized: "Edited")), duration: kept.map { $0.1 - $0.0 }.reduce(0, +), progress: progress)
         }
         let total = parts.map { $0.1 - $0.0 }.reduce(0, +)
         return try await Publisher.publish(for: source) { staging in
@@ -447,7 +447,7 @@ enum MediaTools {
         filter.removeLast()
         let args = ["-i", source.path, "-filter_complex", filter, "-map", "[\(current)]", "-map", "0:a?"]
             + videoCodecArgs(format, quality: 75) + audioArgs(for: format, info: info)
-        return try await render(args, to: output(source, suffix: "Redacted"), duration: info.duration, progress: progress)
+        return try await render(args, to: output(source, suffix: String(localized: "Redacted")), duration: info.duration, progress: progress)
     }
 
     // MARK: Audio tools
@@ -479,7 +479,7 @@ enum MediaTools {
         } else {
             args += ["-map", "0:a:0", "-vn", "-af", filter + ",aresample=\(rate)"] + audioEncoder(format, info: info)
         }
-        return try await render(args, to: output(source, suffix: "Normalized"), duration: info.duration) { progress(0.4 + $0 * 0.6) }
+        return try await render(args, to: output(source, suffix: String(localized: "Normalized")), duration: info.duration) { progress(0.4 + $0 * 0.6) }
     }
 
     static func visualize(_ source: URL, options: ToolOptions.Visualizer, progress: @escaping (Double) -> Void) async throws -> URL {
@@ -501,7 +501,7 @@ enum MediaTools {
                     "-map", "[v]", "-map", "1:a:0", "-shortest"]
         }
         args += ["-c:v", "h264_videotoolbox", "-q:v", "65", "-allow_sw", "1", "-tag:v", "avc1", "-c:a", "aac_at", "-b:a", "192k", "-movflags", "+faststart", "-t", String(format: "%.3f", info.duration)]
-        return try await render(args, to: output(source, suffix: "Visualizer", format: .mp4), duration: info.duration, progress: progress)
+        return try await render(args, to: output(source, suffix: String(localized: "Visualizer"), format: .mp4), duration: info.duration, progress: progress)
     }
 
     static func channels(_ source: URL, options: ToolOptions.Channels, progress: @escaping (Double) -> Void) async throws -> URL {
@@ -536,7 +536,7 @@ enum MediaTools {
         let ranges = options.ranges.filter { $0.count == 2 && $0[1] > $0[0] && $0[0] < info.duration }
         guard !ranges.isEmpty else { throw WheelError("Add at least one bleep range.") }
         let args = ["-i", source.path, "-map", "0:a:0", "-vn", "-af", bleepFilter(ranges)] + audioEncoder(format, info: info)
-        return try await render(args, to: output(source, suffix: "Bleeped"), duration: info.duration, progress: progress)
+        return try await render(args, to: output(source, suffix: String(localized: "Bleeped")), duration: info.duration, progress: progress)
     }
 
     // MARK: Previews for the tool windows

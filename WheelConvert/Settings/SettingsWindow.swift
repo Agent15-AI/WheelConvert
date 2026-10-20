@@ -10,7 +10,7 @@ final class SettingsWindowController {
         if window == nil {
             let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 720, height: 520), styleMask: [.titled, .closable, .miniaturizable, .resizable],
                                   backing: .buffered, defer: false)
-            window.title = "WheelConvert Settings"
+            window.title = String(localized: "WheelConvert Settings")
             window.isReleasedWhenClosed = false
             window.minSize = NSSize(width: 640, height: 440)
             window.contentView = NSHostingView(rootView: SettingsView())
@@ -52,13 +52,13 @@ struct GeneralSettings: View {
                 Toggle("Launch WheelConvert at login", isOn: $launchAtLogin)
                     .onChange(of: launchAtLogin) { value in
                         do { try LoginItem.set(value); loginError = nil } catch {
-                            loginError = "macOS couldn’t change this setting. Try again in Login Items."
+                            loginError = String(localized: "macOS couldn’t change this setting. Try again in Login Items.")
                             launchAtLogin = LoginItem.isEnabled
                         }
                     }
                 if LoginItem.needsApproval || loginError != nil {
                     HStack {
-                        Text(loginError ?? "Allow WheelConvert in macOS Login Items to finish setup.").foregroundStyle(.secondary)
+                        Text(loginError ?? String(localized: "Allow WheelConvert in macOS Login Items to finish setup.")).foregroundStyle(.secondary)
                         Button("Open Login Items") { SMAppServiceHelper.openLoginItems() }
                     }
                 }
@@ -79,7 +79,7 @@ struct GeneralSettings: View {
                     }
                 if settings.saveDestination == .folder {
                     HStack {
-                        Text(settings.saveFolder.map { FileManager.default.displayName(atPath: $0.path) } ?? "No folder chosen")
+                        Text(settings.saveFolder.map { FileManager.default.displayName(atPath: $0.path) } ?? String(localized: "No folder chosen"))
                             .foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle).help(settings.saveFolder?.path ?? "")
                         Spacer()
                         Button("Choose…") { _ = chooseSaveFolder() }
@@ -106,7 +106,7 @@ struct GeneralSettings: View {
                 Picker("Float", selection: $settings.floatBehavior) { ForEach(FloatBehavior.allCases) { Text($0.title).tag($0) } }
                 Picker("Terminal app", selection: $settings.terminalApp) {
                     ForEach(FileActions.terminals, id: \.id) { terminal in
-                        Text(NSWorkspace.shared.urlForApplication(withBundleIdentifier: terminal.id) == nil ? "\(terminal.name) (Not installed)" : terminal.name).tag(terminal.id)
+                        Text(NSWorkspace.shared.urlForApplication(withBundleIdentifier: terminal.id) == nil ? String(localized: "\(terminal.name) (Not installed)") : terminal.name).tag(terminal.id)
                     }
                 }
             }
@@ -120,8 +120,8 @@ struct GeneralSettings: View {
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.canCreateDirectories = true
-        panel.prompt = "Choose"
-        panel.message = "Choose the folder where WheelConvert saves results."
+        panel.prompt = String(localized: "Choose")
+        panel.message = String(localized: "Choose the folder where WheelConvert saves results.")
         panel.directoryURL = settings.saveFolder
         guard panel.runModal() == .OK, let url = panel.url else { return false }
         settings.saveFolder = url
@@ -151,7 +151,7 @@ struct ShortcutRow: View {
             Spacer()
             if let conflict { Text(conflict).font(.callout).foregroundStyle(.orange) }
             Button(action: toggle) {
-                Text(recording ? (peak.isEmpty ? "Press keys…" : peak.symbols) : settings.modifiers(for: mode).symbols.isEmpty ? "None" : settings.modifiers(for: mode).symbols)
+                Text(recording ? (peak.isEmpty ? String(localized: "Press keys…") : peak.symbols) : settings.modifiers(for: mode).symbols.isEmpty ? String(localized: "None") : settings.modifiers(for: mode).symbols)
                     .font(.system(size: 14, weight: .medium, design: .rounded))
                     .frame(minWidth: 90)
             }
@@ -184,7 +184,7 @@ struct ShortcutRow: View {
 
     private func commit(_ flags: NSEvent.ModifierFlags) {
         if let other = WheelMode.allCases.first(where: { $0 != mode && settings.modifiers(for: $0) == flags }) {
-            conflict = "Used by \(other.title)"
+            conflict = String(localized: "Used by \(other.title)")
         } else {
             settings.setModifiers(flags, for: mode)
         }
@@ -248,7 +248,8 @@ struct FormatOptionsEditor: View {
     var body: some View {
         let applicable = ConversionSetting.applicable(to: format)
         Form {
-            Section("Converting to \(format.title)") {
+            Section(String(localized: "settings.convertingTo", defaultValue: "Converting to \(format.title)",
+                           comment: "Settings → Conversion header: the defaults used whenever a file is converted to this format")) {
                 if applicable.isEmpty {
                     Text("This output format has no adjustable conversion defaults.").foregroundStyle(.secondary)
                 }
@@ -339,7 +340,7 @@ struct PresetSettings: View {
                 Divider()
                 HStack(spacing: 8) {
                     Menu {
-                        Button("Conversion Preset") { add(Preset(name: "New Preset", label: "PRESET", target: .jpg)) }
+                        Button("Conversion Preset") { add(Preset(name: String(localized: "New Preset"), label: String(localized: "PRESET"), target: .jpg)) }
                         ForEach(Preset.tools) { tool in
                             Button("\(tool.title) Preset") { add(Self.blank(tool)) }
                         }
@@ -398,7 +399,7 @@ struct PresetSettings: View {
         guard let index = settings.presets.firstIndex(where: { $0.id == selection }) else { return }
         var copy = settings.presets[index]
         copy.id = UUID()
-        copy.name += " Copy"
+        copy.name = String(localized: "\(copy.name) Copy", comment: "Name of a duplicated preset")
         settings.presets.insert(copy, at: index + 1)
         selection = copy.id
     }
@@ -525,8 +526,8 @@ struct WatchFolderSettings: View {
         panel.canChooseDirectories = true
         panel.canCreateDirectories = true
         panel.allowsMultipleSelection = true
-        panel.prompt = "Watch"
-        panel.message = "Choose folders to watch for new files."
+        panel.prompt = String(localized: "Watch")
+        panel.message = String(localized: "Choose folders to watch for new files.")
         guard panel.runModal() == .OK, let preset = settings.presets.first else { return }
         for url in panel.urls where !settings.watchFolders.contains(where: { $0.path == url.path }) {
             settings.watchFolders.append(WatchFolder(path: url.path, presetID: preset.id))

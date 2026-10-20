@@ -64,8 +64,8 @@ enum PagesBridge {
         if let failure { throw WheelError("The native Pages writer failed: \(failure)") }
         let result = context.objectForKeyedSubscript(function)?.call(withArguments: arguments)
         if let failure {
-            throw WheelError(function == "wcPagesRead" ? "This Pages document couldn’t be read. It may be damaged, password-protected or from an unsupported Pages version."
-                                                       : "The Pages document couldn’t be created: \(failure)")
+            throw function == "wcPagesRead" ? WheelError("This Pages document couldn’t be read. It may be damaged, password-protected or from an unsupported Pages version.")
+                                            : WheelError("The Pages document couldn’t be created: \(failure)")
         }
         guard let text = result?.toString(), result?.isString == true else { throw WheelError("The native Pages writer is unavailable.") }
         return text

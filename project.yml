@@ -1,6 +1,7 @@
 name: WheelConvert
 options:
   bundleIdPrefix: app.wheelconvert
+  developmentLanguage: en
   deploymentTarget:
     macOS: "13.0"
   createIntermediateGroups: true
@@ -18,6 +19,9 @@ settings:
     CURRENT_PROJECT_VERSION: "1"
     DEAD_CODE_STRIPPING: YES
     HEADER_SEARCH_PATHS: $(PROJECT_DIR)/Vendor/build/deps/include
+    # The compiler lists every localizable string; scripts/sync-strings.sh merges them into Resources/*.xcstrings.
+    SWIFT_EMIT_LOC_STRINGS: YES
+    LOCALIZATION_PREFERS_STRING_CATALOGS: YES
     # Sparkle: updates are checked only when the public EdDSA key is set (README → Releasing).
     SPARKLE_PUBLIC_KEY: ""
     SPARKLE_FEED_URL: https://github.com/Agent15-AI/WheelConvert/releases/latest/download/appcast.xml

@@ -17,7 +17,7 @@ enum PDFTools {
         case .percentage: original * Int64(100 - min(99, max(1, options.reduction))) / 100
         }
         if let target, target >= original { throw WheelError("Target size cannot exceed the original file size.") }
-        let destination = OutputNaming.tool(source, suffix: "Compressed")
+        let destination = OutputNaming.tool(source, suffix: String(localized: "Compressed"))
         let scratch = try ScratchDirectory()
         let candidates = target == nil ? [levels[options.strength == .light ? 0 : options.strength == .balanced ? 1 : 3]] : levels
         var smallest: (URL, Int64)?
@@ -72,7 +72,7 @@ enum PDFTools {
                 if let page = document.page(at: i)?.copy() as? PDFPage { output.insert(page, at: output.pageCount) }
             }
         }
-        let destination = OutputNaming.unique(in: Publisher.destinationDirectory(for: ordered[0]), base: "Merged PDF", extension: "pdf")
+        let destination = OutputNaming.unique(in: Publisher.destinationDirectory(for: ordered[0]), base: String(localized: "Merged PDF"), extension: "pdf")
         return try await AtomicOutput.write(to: destination) {
             guard output.write(to: $0) else { throw WheelError("PDFKit could not write the combined PDF.") }
         }
@@ -90,7 +90,7 @@ enum PDFTools {
             output.insert(page, at: output.pageCount)
         }
         if options.equalWidths { output = try equalizedWidths(output) }
-        let destination = OutputNaming.tool(source, suffix: "Organized")
+        let destination = OutputNaming.tool(source, suffix: String(localized: "Organized"))
         return try await AtomicOutput.write(to: destination) {
             guard output.write(to: $0), PDFDocument(url: $0)?.pageCount == options.pages.count else { throw WheelError("The organized PDF could not be verified.") }
         }
@@ -213,7 +213,7 @@ enum MetadataTools {
         guard options.changes.keys.allSatisfy({ !$0.isEmpty && $0.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "_") } }) else {
             throw WheelError("This metadata field is not supported.")
         }
-        let destination = OutputNaming.tool(source, suffix: options.removeAll ? "Metadata Removed" : "Metadata Edited")
+        let destination = OutputNaming.tool(source, suffix: options.removeAll ? String(localized: "Metadata Removed") : String(localized: "Metadata Edited"))
         switch format.category {
         case .pdf:
             return try await AtomicOutput.write(to: destination) { try pdf(source, options: options, to: $0) }

@@ -3,7 +3,9 @@ import Foundation
 /// A failure worth showing to the person, worded for them.
 struct WheelError: LocalizedError, Equatable {
     let message: String
-    init(_ message: String) { self.message = message }
+    init(_ message: LocalizedStringResource) { self.message = String(localized: message) }
+    /// Text that is already worded for people, such as a helper's own message or an already localized one.
+    init(verbatim message: String) { self.message = message }
     var errorDescription: String? { message }
 }
 
