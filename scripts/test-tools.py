@@ -227,7 +227,7 @@ INTENT_CASES = [
     ("intent convert", ["convert", "png", "sample.jpg"], lambda outs: outs == ["OUT:sample.png"]),
     ("intent convert pages", ["convert", "jpg", "sample-multi.pdf"], lambda outs: len(outs) == 3 and all(o.endswith(".jpg") for o in outs)),
     ("intent compress", ["compress", "strong", "sample.mov"], lambda outs: outs == ["OUT:sample Compressed.mov"]),
-    ("intent compress target", ["compress", "balanced:0.1", "sample.mp4"], lambda outs: len(outs) == 1),
+    ("intent compress target", ["compress", "balanced:0.2", "sample.mov"], lambda outs: len(outs) == 1),
     ("intent preset", ["preset", "Podcast MP3 (128 kbps)", "sample.mov"], lambda outs: outs == ["OUT:sample.mp3"]),
     ("intent data input", ["convert", "webp", "data:sample.jpg"], lambda outs: len(outs) == 1 and outs[0].startswith("DATA:sample.webp\t")),
 ]
