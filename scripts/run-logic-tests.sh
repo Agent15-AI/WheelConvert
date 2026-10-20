@@ -58,5 +58,5 @@ PY
 SRC=$ROOT/WheelConvert
 SOURCES=(${(f)"$(find $SRC -name '*.swift' ! -path '*/App/main.swift')"})
 swiftc -O -module-name WheelConvert -import-objc-header $SRC/Support/WheelConvert-Bridging-Header.h -I $ROOT/Vendor/build/deps/include \
-  -L $ROOT/Vendor/build/deps/lib -lwebp -lsharpyuv -lz -o $OUT/run $SOURCES $OUT/*.swift 2>&1 | grep -E "error:" | head -20 || true
+  -L $ROOT/Vendor/build/deps/lib -lwebpmux -lwebp -lsharpyuv -lz -o $OUT/run $SOURCES $OUT/*.swift 2>&1 | grep -E "error:" | head -20 || true
 $OUT/run

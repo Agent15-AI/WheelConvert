@@ -113,7 +113,7 @@ enum ImageConverter {
                       keepMetadata: Bool, to url: URL, exactQuality: Double? = nil) throws {
         let level = exactQuality ?? quality(q)
         if format == .webp {
-            let data = try WebPCodec.encode(image.cgImage, quality: Float(level * 100))
+            let data = try WebPCodec.encode(image.cgImage, quality: Float(level * 100), metadata: keepMetadata ? (image.metadata ?? CGImageMetadataCreateMutable()) : nil)
             try data.write(to: url)
             return
         }

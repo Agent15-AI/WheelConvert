@@ -163,6 +163,26 @@ if not filters or any("batch" in f for f in filters):
     elif sorted(os.listdir(d)) != sorted([os.path.basename(p) for p in paths] + [os.path.basename(o) for o in outs]): err = f"stray files {os.listdir(d)}"
     results.append(("batch", "cancel", "OK" if not err else "FAIL " + err, 0)); print(f"{'OK  ' if not err else 'FAIL'} cancelled parallel batch {err or ''}")
 
+# WebP keeps EXIF, GPS, XMP and the color profile when "Preserve metadata" is on, and drops them when off.
+if not filters or any("webp" in f for f in filters):
+    EXIFTOOL = os.path.join(ROOT, "Vendor/build/ExifTool/exiftool")
+    d = os.path.join(WORK, "webp-metadata"); os.makedirs(d)
+    plain = os.path.join(d, "plain.jpg"); shutil.copy2(os.path.join(FIXTURES, "sample.jpg"), plain)
+    run([EXIFTOOL, "-q", "-overwrite_original", "-Artist=WheelConvert Test", "-DateTimeOriginal=2026:10:01 12:00:00", "-GPSLatitude=48.85", "-GPSLatitudeRef=N",
+         "-XMP-dc:Title=Paris", plain])
+    photo = os.path.join(d, "photo.jpg")
+    run(["sips", "-e", "/System/Library/ColorSync/Profiles/Display P3.icc", plain, "--out", photo])
+    run([EXIFTOOL, "-q", "-overwrite_original", "-tagsFromFile", plain, "-all:all", "--ICC_Profile", photo])
+    stripped = os.path.join(d, "stripped.jpg"); shutil.copy2(photo, stripped)
+    run([APP, "--convert", photo, "webp", "--options", json.dumps({"preserveMetadata": True})])
+    run([APP, "--convert", stripped, "webp", "--options", json.dumps({"preserveMetadata": False})])
+    def tags(path): return run([EXIFTOOL, "-s", "-s", "-s", "-Artist", "-GPSLatitude", "-Title", "-ProfileDescription", "-ExifImageWidth", path]).stdout.split("\n")
+    kept, gone = tags(os.path.join(d, "photo.webp")), tags(os.path.join(d, "stripped.webp"))
+    err = None
+    if kept[:5] != ["WheelConvert Test", "48 deg 51' 0.00\"", "Paris", "Display P3", "640"]: err = f"kept {kept}"
+    elif any(gone[:4]): err = f"not stripped {gone}"
+    results.append(("jpg", "webp metadata", "OK" if not err else "FAIL " + err, 0)); print(f"{'OK  ' if not err else 'FAIL'} WebP metadata {err or ''}")
+
 # PDF → PowerPoint keeps text editable (real text boxes) and stores photo-like pages as JPEG.
 if not filters or any("pptx" in f for f in filters):
     err = None

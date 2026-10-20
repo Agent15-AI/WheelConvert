@@ -69,8 +69,9 @@ enum ImageTools {
     static func encode(_ image: LoadedImage, format: FileFormat, strength: CompressionStrength, target: Int64?, dither: Bool = true) throws -> Data {
         switch format {
         case .webp:
-            if let target { return try WebPCodec.encode(image.cgImage, quality: 75, targetSize: Int(target)) }
-            return try WebPCodec.encode(image.cgImage, quality: Float(quality(for: strength) * 100))
+            // Like the other formats, compressed copies keep their metadata.
+            if let target { return try WebPCodec.encode(image.cgImage, quality: 75, targetSize: Int(target), metadata: image.metadata ?? CGImageMetadataCreateMutable()) }
+            return try WebPCodec.encode(image.cgImage, quality: Float(quality(for: strength) * 100), metadata: image.metadata ?? CGImageMetadataCreateMutable())
         case .jpg, .heic, .avif:
             guard let target else { return try encodeImage(image, format: format, quality: quality(for: strength)) }
             var lo = 0.05, hi = 0.95
