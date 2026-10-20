@@ -176,7 +176,7 @@ enum ShortcutFormat: String, AppEnum {
     case docx, pages, md, txt, epub, html
     case pptx, xlsx, ods, csv, tsv
     case srt, vtt
-    case zip, tar, gzip
+    case zip, tar, gzip, sevenZip = "7z"
 
     static let typeDisplayRepresentation: TypeDisplayRepresentation = "Format"
     static let caseDisplayRepresentations: [ShortcutFormat: DisplayRepresentation] = [
@@ -186,6 +186,6 @@ enum ShortcutFormat: String, AppEnum {
         .docx: "Word (DOCX)", .pages: "Pages", .md: "Markdown", .txt: "Plain Text", .epub: "EPUB", .html: "HTML",
         .pptx: "PowerPoint (PPTX)", .xlsx: "Excel (XLSX)", .ods: "ODS", .csv: "CSV", .tsv: "TSV",
         .srt: "SRT", .vtt: "VTT",
-        .zip: "ZIP", .tar: "TAR", .gzip: "GZIP",
+        .zip: "ZIP", .tar: "TAR", .gzip: "GZIP", .sevenZip: "7-Zip",
     ]
 }

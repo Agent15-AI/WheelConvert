@@ -87,6 +87,7 @@ CASES = [
     ("extract text pdf", "extractText", ["sample-docx.pdf"], {}, "text:Second paragraph"),
     ("extract zip", "extractArchive", ["sample.zip"], {}, "folder"),
     ("extract tgz", "extractArchive", ["sample.tar.gz"], {}, "folder"),
+    ("extract 7z", "extractArchive", ["sample.7z"], {}, "folder"),
     ("extract gz", "extractArchive", ["single.txt.gz"], {}, "file:single.txt"),
 ]
 

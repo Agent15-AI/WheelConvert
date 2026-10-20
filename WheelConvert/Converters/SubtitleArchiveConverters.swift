@@ -120,6 +120,7 @@ enum ArchiveConverter {
         switch target {
         case .zip: ["--format", "zip", "--options", "zip:compression-level=\(options.compression.level)"]
         case .gzip: ["-z", "--options", "gzip:compression-level=\(options.compression.level)"]
+        case .sevenZip: ["--format", "7zip", "--options", "7zip:compression=lzma2,7zip:compression-level=\(options.compression.level)"]
         default: ["--format", "pax"]
         }
     }

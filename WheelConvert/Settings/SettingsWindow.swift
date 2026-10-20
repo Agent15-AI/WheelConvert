@@ -580,7 +580,7 @@ struct FormatCompatibility: View {
                     Text(ConversionMatrix.outputs(for: format).map(\.title).joined(separator: ", ")).foregroundStyle(.secondary).lineLimit(2)
                 }
             }
-            Text("\(ConversionMatrix.allPairs.count) conversions in total. Folders can also become ZIP, TAR or GZIP archives.").font(.callout).foregroundStyle(.secondary)
+            Text("\(ConversionMatrix.allPairs.count) conversions in total. Folders can also become ZIP, TAR, GZIP or 7Z archives.").font(.callout).foregroundStyle(.secondary)
         }
         .padding(8)
     }

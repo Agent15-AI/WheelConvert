@@ -102,7 +102,7 @@ enum ConversionSetting: CaseIterable {
         case .mp3, .m4a, .ogg, .opus: [.audioBitrate, .preserveMetadata]
         case .wav, .aiff: [.audioSampleDepth, .preserveMetadata]
         case .flac: [.audioSampleDepth, .compression, .preserveMetadata]
-        case .zip, .gzip: [.compression]
+        case .zip, .gzip, .sevenZip: [.compression]
         case .epub: [.epubLayout]
         case .docx, .pages, .pptx: [.officeLayout]
         default: []

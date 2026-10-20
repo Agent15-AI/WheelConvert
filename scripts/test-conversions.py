@@ -77,13 +77,17 @@ def validate(path, fmt):
         except zipfile.BadZipFile as e:
             return f"bad zip: {e}"
         return None
-    if fmt in ("tar", "gzip"):
+    if fmt in ("tar", "gzip", "7z"):
         r = run(["/usr/bin/tar", "-tf", path])
         return None if r.returncode == 0 and r.stdout.strip() else "tar cannot list: " + r.stderr[:200]
     if fmt in ("txt", "md", "html", "srt", "vtt", "csv", "tsv"):
         with open(path, encoding="utf-8") as f: text = f.read()
         return None if text.strip() else "no text"
     return None
+
+# A 7-Zip archive, written by the system's libarchive (bsdtar) like WheelConvert's own.
+if not os.path.exists(os.path.join(FIXTURES, "sample.7z")) and os.path.isdir(os.path.join(FIXTURES, "tree")):
+    run(["/usr/bin/tar", "-c", "--format", "7zip", "-f", os.path.join(FIXTURES, "sample.7z"), "-C", FIXTURES, "tree"])
 
 # Camera raw samples (CC0, raw.pixls.us), fetched once and checked against their published files.
 RAW_SAMPLES = {

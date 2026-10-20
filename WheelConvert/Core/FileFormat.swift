@@ -45,7 +45,7 @@ enum FileFormat: String, CaseIterable, Codable, Identifiable {
     case ppt, pptx
     case xlsx, xls, ods, csv, tsv
     case srt, vtt
-    case zip, tar, gzip, rar
+    case zip, tar, gzip, sevenZip = "7z", rar
 
     var id: String { rawValue }
 
@@ -58,6 +58,7 @@ enum FileFormat: String, CaseIterable, Codable, Identifiable {
         case .webm: "WebM"
         case .textClipping: "Text Clipping"
         case .gzip: "GZIP"
+        case .sevenZip: "7Z"
         case .pages: "Pages"
         case .raw: "Camera RAW"
         default: rawValue.uppercased()
@@ -83,7 +84,7 @@ enum FileFormat: String, CaseIterable, Codable, Identifiable {
         case .ppt, .pptx: .slides
         case .xlsx, .xls, .ods, .csv, .tsv: .spreadsheets
         case .srt, .vtt: .subtitles
-        case .zip, .tar, .gzip, .rar: .archives
+        case .zip, .tar, .gzip, .sevenZip, .rar: .archives
         }
     }
 
@@ -145,6 +146,7 @@ enum FileFormat: String, CaseIterable, Codable, Identifiable {
         case .zip: ["zip"]
         case .tar: ["tar"]
         case .gzip: ["tgz", "gz"]
+        case .sevenZip: ["7z"]
         case .rar: ["rar"]
         }
     }
@@ -191,6 +193,6 @@ enum FileFormat: String, CaseIterable, Codable, Identifiable {
         ("com.microsoft.excel.xls", .xls), ("org.oasis-open.opendocument.spreadsheet", .ods),
         ("public.comma-separated-values-text", .csv), ("public.tab-separated-values-text", .tsv),
         ("public.zip-archive", .zip), ("public.tar-archive", .tar), ("org.gnu.gnu-zip-archive", .gzip),
-        ("com.rarlab.rar-archive", .rar), ("public.plain-text", .txt),
+        ("com.rarlab.rar-archive", .rar), ("org.7-zip.7-zip-archive", .sevenZip), ("public.plain-text", .txt),
     ]
 }

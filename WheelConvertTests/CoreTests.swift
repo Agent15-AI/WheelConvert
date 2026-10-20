@@ -24,6 +24,10 @@ final class CoreTests: XCTestCase {
         XCTAssertNil(FileFormat.detect(URL(fileURLWithPath: "/x/a.unknownext")))
         for name in ["a.DNG", "a.cr3", "a.NEF", "a.arw", "a.raf", "a.orf", "a.rw2"] { XCTAssertEqual(FileFormat.detect(URL(fileURLWithPath: "/x/" + name)), .raw) }
         XCTAssertTrue(FileFormat.raw.isInputOnly)
+        XCTAssertEqual(FileFormat.detect(URL(fileURLWithPath: "/x/a.7z")), .sevenZip)
+        XCTAssertEqual(FileFormat.sevenZip.fileExtension, "7z")
+        XCTAssertTrue(ConversionMatrix.outputs(for: .zip).contains(.sevenZip))
+        XCTAssertTrue(ConversionMatrix.outputs(for: .sevenZip).contains(.zip))
         XCTAssertTrue(ConversionMatrix.outputs(for: .raw).contains(.jpg))
     }
 

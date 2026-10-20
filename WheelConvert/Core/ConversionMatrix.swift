@@ -18,7 +18,7 @@ enum ConversionMatrix {
     static let audioTargets: [FileFormat] = [.mp3, .m4a, .wav, .flac, .ogg, .opus, .aiff]
     static let documentTargets: [FileFormat] = [.pdf, .docx, .pages, .md, .txt, .epub, .html]
     static let spreadsheetTargets: [FileFormat] = [.xlsx, .ods, .csv, .tsv, .pdf]
-    static let archiveTargets: [FileFormat] = [.zip, .tar, .gzip]
+    static let archiveTargets: [FileFormat] = [.zip, .tar, .gzip, .sevenZip]
 
     static func outputs(for input: FileFormat) -> [FileFormat] {
         let targets: [FileFormat]
