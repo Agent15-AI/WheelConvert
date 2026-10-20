@@ -3,7 +3,7 @@ import Foundation
 /// The file tools (second wheel).
 enum ToolKind: String, CaseIterable, Codable, Identifiable {
     case compress, removeMetadata
-    case editImage, annotateImage, frameImage, cropImage, redactImage, createPDF, createCollage, readQRCode
+    case editImage, annotateImage, frameImage, cropImage, redactImage, createPDF, createCollage, readQRCode, extractText
     case trimVideo, cropVideo, changeVideoSpeed, muteVideo, joinVideos, videoSnapshots, splitVideo, redactVideo
     case normalizeAudio, audioToVideo, trimAudio, audioChannels, redactAudio
     case mergePDF, organizePDF, splitPDF
@@ -23,6 +23,7 @@ enum ToolKind: String, CaseIterable, Codable, Identifiable {
         case .createPDF: "Create PDF"
         case .createCollage: "Make Collage"
         case .readQRCode: "Read QR Code"
+        case .extractText: "Extract Text"
         case .trimVideo: "Trim Video"
         case .cropVideo: "Crop Video"
         case .changeVideoSpeed: "Change Speed"
@@ -55,6 +56,7 @@ enum ToolKind: String, CaseIterable, Codable, Identifiable {
         case .createPDF: "PDF"
         case .createCollage: "COLLAGE"
         case .readQRCode: "QR CODE"
+        case .extractText: "TEXT"
         case .trimVideo, .trimAudio: "TRIM"
         case .changeVideoSpeed: "SPEED"
         case .muteVideo: "MUTE"
@@ -83,6 +85,7 @@ enum ToolKind: String, CaseIterable, Codable, Identifiable {
         case .createPDF: "doc.richtext"
         case .createCollage: "rectangle.3.group"
         case .readQRCode: "qrcode.viewfinder"
+        case .extractText: "text.viewfinder"
         case .trimVideo, .trimAudio: "timeline.selection"
         case .changeVideoSpeed: "gauge.with.dots.needle.67percent"
         case .muteVideo: "speaker.slash.fill"
@@ -113,6 +116,7 @@ enum ToolKind: String, CaseIterable, Codable, Identifiable {
         case .createPDF: "Creating PDF"
         case .createCollage: "Creating collage"
         case .readQRCode: "Reading QR codes"
+        case .extractText: "Extracting text"
         case .trimVideo, .trimAudio: "Trimming"
         case .cropVideo: "Cropping video"
         case .changeVideoSpeed: "Changing speed"
@@ -132,7 +136,7 @@ enum ToolKind: String, CaseIterable, Codable, Identifiable {
     }
 
     /// Tools that run straight from the wheel without an options window.
-    var runsImmediately: Bool { [.muteVideo, .extractArchive, .readQRCode].contains(self) }
+    var runsImmediately: Bool { [.muteVideo, .extractArchive, .readQRCode, .extractText].contains(self) }
 
     static let rasterImages: Set<FileFormat> = [.jpg, .png, .webp, .heic, .tiff, .avif, .bmp]
     static let editableVideo: Set<FileFormat> = [.mp4, .mov, .mkv, .webm, .avi, .wmv, .gif]
@@ -152,7 +156,7 @@ enum ToolKind: String, CaseIterable, Codable, Identifiable {
             if single { tools += [.editImage, .annotateImage] }
             tools += [.frameImage, .cropImage]
             if single { tools.append(.redactImage) }
-            tools.append(.readQRCode)
+            tools += [.readQRCode, .extractText]
             if many { tools += [.createPDF, .createCollage] }
             return tools
         case .video:
@@ -172,7 +176,7 @@ enum ToolKind: String, CaseIterable, Codable, Identifiable {
         case .pdf:
             var tools: [ToolKind] = [.compress, .removeMetadata]
             if single { tools += [.organizePDF, .splitPDF] }
-            tools.append(.readQRCode)
+            tools += [.readQRCode, .extractText]
             if many { tools.append(.mergePDF) }
             return tools
         case .archives:

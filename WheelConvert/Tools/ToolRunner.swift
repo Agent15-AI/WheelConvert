@@ -27,6 +27,7 @@ enum ToolRequest {
     case organizePDF(ToolOptions.OrganizePDF)
     case splitPDF(ToolOptions.SplitPDF)
     case extract
+    case extractText
 
     /// Tools that turn the whole selection into one result.
     var isBatch: Bool {
@@ -66,6 +67,7 @@ enum ToolRequest {
         case .organizePDF: return .organizePDF(try d.decode(ToolOptions.OrganizePDF.self, from: data, defaults: ToolOptions.OrganizePDF()))
         case .splitPDF: return .splitPDF(try d.decode(ToolOptions.SplitPDF.self, from: data, defaults: ToolOptions.SplitPDF()))
         case .extractArchive: return .extract
+        case .extractText: return .extractText
         case .readQRCode: throw WheelError("QR reading has no options.")
         }
     }
@@ -104,6 +106,7 @@ enum ToolRunner {
         case .organizePDF(let options): return [try await PDFTools.organize(url, options: options)]
         case .splitPDF(let options): return [try await PDFTools.split(url, options: options)]
         case .extract: return [try await ArchiveConverter.extract(url)]
+        case .extractText: return [try await ImageTools.extractText(url, progress: progress)]
         case .createPDF, .collage, .join, .mergePDF: return try await runBatch(request, on: [url], progress: progress)
         }
     }

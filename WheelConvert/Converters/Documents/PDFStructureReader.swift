@@ -105,19 +105,9 @@ enum PDFStructureReader {
         let box = page.bounds(for: .cropBox)
         let scale: CGFloat = 2.5
         guard let image = render(page, scale: scale) else { return [] }
-        let request = VNRecognizeTextRequest()
-        request.recognitionLevel = .accurate
-        request.usesLanguageCorrection = true
-        do {
-            try VNImageRequestHandler(cgImage: image, options: [:]).perform([request])
-        } catch {
-            throw WheelError("Text recognition could not read a scanned PDF page: \(error.localizedDescription)")
-        }
-        return (request.results ?? []).compactMap { observation in
-            guard let candidate = observation.topCandidates(1).first else { return nil }
-            let b = observation.boundingBox
+        return try ImageTools.recognizeText(in: image).map { text, b in
             let rect = CGRect(x: box.minX + b.minX * box.width, y: box.minY + b.minY * box.height, width: b.width * box.width, height: b.height * box.height)
-            return Line(text: candidate.string, bounds: rect, fontSize: max(6, (rect.height * 0.8).rounded()), bold: false, italic: false, runs: [.init(candidate.string)])
+            return Line(text: text, bounds: rect, fontSize: max(6, (rect.height * 0.8).rounded()), bold: false, italic: false, runs: [.init(text)])
         }
     }
 

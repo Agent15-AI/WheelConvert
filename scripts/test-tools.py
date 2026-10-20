@@ -82,6 +82,9 @@ CASES = [
     ("organize equal widths", "organizePDF", ["sample-multi.pdf"], {"pages": [{"source": 0}, {"source": 1, "rotation": 90}], "equalWidths": True}, "pdf"),
     ("split pdf", "splitPDF", ["sample-multi.pdf"], {"mode": "everyPage"}, "folder"),
     ("split pdf ranges", "splitPDF", ["sample-multi.pdf"], {"mode": "ranges", "ranges": "1, 2-"}, "folder"),
+    ("extract text image", "extractText", ["text.png"], {}, "text:Invoice 2048"),
+    ("extract text scan", "extractText", ["scan.pdf"], {}, "text:Invoice 2048"),
+    ("extract text pdf", "extractText", ["sample-docx.pdf"], {}, "text:Second paragraph"),
     ("extract zip", "extractArchive", ["sample.zip"], {}, "folder"),
     ("extract tgz", "extractArchive", ["sample.tar.gz"], {}, "folder"),
     ("extract gz", "extractArchive", ["single.txt.gz"], {}, "file:single.txt"),
@@ -91,6 +94,16 @@ CASES = [
 if not os.path.exists(os.path.join(FIX, "gradient.png")):
     subprocess.run([os.path.join(ROOT, "Vendor/build/bin/ffmpeg"), "-v", "error", "-f", "lavfi", "-i", "gradients=s=1200x800:c0=0x1a3399:c1=0xf28c4d:x0=0:y0=0:x1=1200:y1=260:nb_colors=2:d=1",
                     "-frames:v", "1", os.path.join(FIX, "gradient.png")], check=True)
+
+# A picture of text and a scanned PDF of it (no text layer), made with the app's own conversions.
+if not os.path.exists(os.path.join(FIX, "scan.pdf")):
+    tmp = os.path.join(ROOT, "build/ocr-fixture"); shutil.rmtree(tmp, ignore_errors=True); os.makedirs(tmp)
+    with open(os.path.join(tmp, "text.md"), "w") as f: f.write("# Invoice 2048\n\nThe quick brown fox jumps over the lazy dog.\n")
+    subprocess.run([APP, "--convert", os.path.join(tmp, "text.md"), "pdf"], capture_output=True, check=True)
+    subprocess.run([APP, "--convert", os.path.join(tmp, "text.pdf"), "png", "--options", json.dumps({"pdfImageDPI": 150})], capture_output=True, check=True)
+    shutil.copy2(os.path.join(tmp, "text.png"), os.path.join(FIX, "text.png"))
+    r = subprocess.run([APP, "--tool", "createPDF", os.path.join(tmp, "text.png")], capture_output=True, text=True, check=True)
+    shutil.copy2(next(l[4:] for l in r.stdout.splitlines() if l.startswith("OUT:")), os.path.join(FIX, "scan.pdf"))
 
 shutil.rmtree(WORK, ignore_errors=True)
 failures = []
@@ -126,6 +139,9 @@ for index, (name, tool, files, options, check) in enumerate(CASES):
             elif any(len(b.split()) != 4 or float(b.split()[2]) - float(b.split()[0]) < 1 or float(b.split()[3]) - float(b.split()[1]) < 1 for b in boxes): err = "zero-size page"
         elif check == "folder":
             if not os.path.isdir(out) or not os.listdir(out): err = "no folder output"
+        elif check.startswith("text:"):
+            body = open(out, encoding="utf-8").read() if out.endswith(".txt") else ""
+            if check[5:] not in body: err = f"text not found in {body[:120]!r}"
         elif check.startswith("file:"):
             if not os.path.isfile(out) or os.path.basename(out) != check[5:]: err = f"expected file {check[5:]}"
         else:

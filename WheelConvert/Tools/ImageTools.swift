@@ -501,6 +501,43 @@ enum ImageTools {
         let symbology: String
     }
 
+    // MARK: Text recognition
+
+    /// Lines of text Vision reads in an image, in reading order, with normalized bounds (origin bottom-left).
+    static func recognizeText(in image: CGImage) throws -> [(text: String, bounds: CGRect)] {
+        let request = VNRecognizeTextRequest()
+        request.recognitionLevel = .accurate
+        request.usesLanguageCorrection = true
+        request.automaticallyDetectsLanguage = true
+        do {
+            try VNImageRequestHandler(cgImage: image, options: [:]).perform([request])
+        } catch {
+            throw WheelError("Text recognition could not read this image: \(error.localizedDescription)")
+        }
+        return (request.results ?? []).compactMap { observation in observation.topCandidates(1).first.map { ($0.string, observation.boundingBox) } }
+    }
+
+    /// "Extract Text": the text of a photo, screenshot or scanned PDF as a .txt file. PDFs use their
+    /// own text where pages have it and text recognition where they're scans.
+    static func extractText(_ source: URL, progress: @escaping (Double) -> Void) async throws -> URL {
+        var text: String
+        if FileFormat.detect(source) == .pdf {
+            do {
+                text = try PDFConverter.text(try PDFConverter.open(source), progress: progress)
+            } catch let error as WheelError where error.message == "This PDF has no selectable text." {
+                throw WheelError("No text was found in “\(source.lastPathComponent)”.")
+            }
+        } else {
+            let image = try ImageConverter.load(source, maxPixelSize: 8192).cgImage
+            text = try recognizeText(in: image).map(\.text).joined(separator: "\n")
+            progress(1)
+        }
+        text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { throw WheelError("No text was found in “\(source.lastPathComponent)”.") }
+        let destination = OutputNaming.tool(source, suffix: "Text", extension: "txt")
+        return try await AtomicOutput.write(to: destination) { try (text + "\n").write(to: $0, atomically: false, encoding: .utf8) }
+    }
+
     static func readCodes(_ sources: [URL], progress: (Double) -> Void) throws -> [Code] {
         var codes: [Code] = []
         for (index, url) in sources.enumerated() {

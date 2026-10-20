@@ -5,7 +5,7 @@ Finder, press a modifier key, and a wheel appears under the pointer: drop on a p
 tool, or run a file action. Everything runs locally.
 
 - **⇧ Shift** — Convert (images, video, audio, PDF, documents, slides, spreadsheets, subtitles, archives)
-- **⌘ Command** — File tools (compress, crop, trim, redact, merge, split, metadata, …)
+- **⌘ Command** — File tools (compress, crop, trim, redact, merge, split, metadata, extract text, …)
 - **⌃ Control** — File actions (AirDrop, Float, Copy, Move, Copy Path, Terminal)
 
 Presets are saved recipes, such as "Instagram 1080 px JPG" or "Email-size MP4 (under 25 MB)": a target format
