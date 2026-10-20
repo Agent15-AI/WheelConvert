@@ -13,7 +13,9 @@ enum EPUBWriter {
     .footnotes{font-size:.9em;border-top:1px solid #999;margin-top:2em}
     """
 
-    static func write(_ doc: StructuredDocument) throws -> Data {
+    /// - Parameter forKindle: tuned for Send to Kindle: pictures at most 1600 px as JPEG or PNG, a cover
+    ///   when the book opens with a picture, and an NCX table of contents for older Kindle software.
+    static func write(_ doc: StructuredDocument, forKindle: Bool = false) throws -> Data {
         let title = doc.inferredTitle ?? "Untitled"
         let language = doc.language ?? Locale.current.language.languageCode?.identifier ?? "en"
         var images: [(name: String, data: Data, mime: String)] = []
@@ -22,7 +24,7 @@ enum EPUBWriter {
         var files: [(name: String, title: String, xhtml: String)] = []
         for (index, blocks) in chapters.enumerated() {
             var writer = HTMLWriter(images: .referenced({ image in
-                let data = ImageSniffer.portable(image.data)
+                let data = forKindle ? ImageSniffer.kindleReady(image.data) : ImageSniffer.portable(image.data)
                 // Undecodable bytes would need a media type EPUB readers reject; point at nothing instead.
                 guard ImageSniffer.mime(data).hasPrefix("image/") else { return "" }
                 if let existing = imageNames[data] { return "images/\(existing)" }
@@ -63,10 +65,16 @@ enum EPUBWriter {
             manifest += "<item id=\"chapter-\(i + 1)\" href=\"\(file.name)\" media-type=\"application/xhtml+xml\"/>"
             spine += "<itemref idref=\"chapter-\(i + 1)\"/>"
         }
+        // A book that opens with a picture gets it as its cover.
+        var opensWithPicture = false
+        if case .image = doc.blocks.first(where: { if case .pageBreak = $0 { return false } else { return true } }) { opensWithPicture = !images.isEmpty }
+        let cover = forKindle && opensWithPicture
         for (i, image) in images.enumerated() {
-            manifest += "<item id=\"img-\(i + 1)\" href=\"images/\(image.name)\" media-type=\"\(image.mime)\"/>"
+            manifest += "<item id=\"img-\(i + 1)\" href=\"images/\(image.name)\" media-type=\"\(image.mime)\"\(cover && i == 0 ? " properties=\"cover-image\"" : "")/>"
         }
-        let opf = package(title: title, author: doc.author, language: language, manifest: manifest, spine: spine, extraMeta: "")
+        if forKindle { manifest += "<item id=\"ncx\" href=\"toc.ncx\" media-type=\"application/x-dtbncx+xml\"/>" }
+        let opf = package(title: title, author: doc.author, language: language, manifest: manifest, spine: spine,
+                          extraMeta: cover ? "<meta name=\"cover\" content=\"img-1\"/>" : "", spineAttributes: forKindle ? " toc=\"ncx\"" : "")
 
         var zip = ZipWriter()
         try zip.add("mimetype", Data("application/epub+zip".utf8), compress: false)
@@ -76,6 +84,18 @@ enum EPUBWriter {
         try zip.add("EPUB/style.css", Data(css.utf8))
         for file in files { try zip.add("EPUB/\(file.name)", Data(file.xhtml.utf8)) }
         for image in images { try zip.add("EPUB/images/\(image.name)", image.data, compress: false) }
+        if forKindle {
+            var points = ""
+            for (i, file) in files.enumerated() {
+                points += "<navPoint id=\"p\(i + 1)\" playOrder=\"\(i + 1)\"><navLabel><text>\(esc(file.title))</text></navLabel><content src=\"\(file.name)\"/></navPoint>"
+            }
+            let ncx = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1"><head><meta name="dtb:uid" content="\(esc(title))"/></head>\
+            <docTitle><text>\(esc(title))</text></docTitle><navMap>\(points)</navMap></ncx>
+            """
+            try zip.add("EPUB/toc.ncx", Data(ncx.utf8))
+        }
         return zip.finish()
     }
 
@@ -132,7 +152,7 @@ enum EPUBWriter {
     </container>
     """
 
-    private static func package(title: String, author: String?, language: String, manifest: String, spine: String, extraMeta: String) -> String {
+    private static func package(title: String, author: String?, language: String, manifest: String, spine: String, extraMeta: String, spineAttributes: String = "") -> String {
         let modified = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: #"\.\d+"#, with: "", options: .regularExpression)
         return """
         <?xml version="1.0" encoding="UTF-8"?>
@@ -146,7 +166,7 @@ enum EPUBWriter {
             \(extraMeta)
           </metadata>
           <manifest>\(manifest)</manifest>
-          <spine>\(spine)</spine>
+          <spine\(spineAttributes)>\(spine)</spine>
         </package>
         """
     }

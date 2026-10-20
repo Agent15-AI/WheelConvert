@@ -65,6 +65,7 @@ def validate(path, fmt):
         return None
     if fmt == "pdf":
         return pdf_error(path)
+    if fmt == "kindle": fmt = "epub"
     if fmt in ("docx", "pptx", "xlsx", "ods", "epub", "zip", "pages"):
         try:
             with zipfile.ZipFile(path) as z:
@@ -90,11 +91,17 @@ if not os.path.exists(os.path.join(FIXTURES, "sample.7z")) and os.path.isdir(os.
     run(["/usr/bin/tar", "-c", "--format", "7zip", "-f", os.path.join(FIXTURES, "sample.7z"), "-C", FIXTURES, "tree"])
 
 # Camera raw samples (CC0, raw.pixls.us), fetched once and checked against their published files.
+# Kindle books: Alice's Adventures in Wonderland from Project Gutenberg (public domain), as a classic
+# MOBI and as KF8 (saved as .azw3).
+DOWNLOADS = {
+    "sample.mobi": ("https://www.gutenberg.org/cache/epub/11/pg11-images.mobi", "1b4222ffdf1862a39d0fae6d42c588f28a34c12ad73cc21c2849fe2646cac3e1"),
+    "sample.azw3": ("https://www.gutenberg.org/cache/epub/11/pg11-images-kf8.mobi", "d8211269aed55ded8302f289950936db8368b4d4d384c463b722034152f8f1d2"),
+}
 RAW_SAMPLES = {
     "sample.nef": ("https://raw.pixls.us/data/Nikon/D50/DSC_5155.NEF", "9f94c27672a63f946c92d43910ef0c266dffaa14dae0007ae00ac72d2c684935"),
     "sample.dng": ("https://raw.pixls.us/data/Pentax/K10D/IMGP5398.DNG", "e7ea961edfea725ad2753f261d20da5e6addd5d641e5bcbc373999710f27941f"),
 }
-for name, (url, digest) in RAW_SAMPLES.items():
+for name, (url, digest) in {**RAW_SAMPLES, **DOWNLOADS}.items():
     path = os.path.join(FIXTURES, name)
     if os.path.exists(path): continue
     part = path + ".part"
@@ -218,6 +225,25 @@ if not filters or any("svg" in f for f in filters):
         if not any(n.startswith(part) and n.endswith(".png") for n in names): err = f"{fmt}: no PNG figure in {names}"; break
         if "[Company logo]" in text: err = f"{fmt}: fell back to the description"; break
     results.append(("md", "svg figure", "OK" if not err else "FAIL " + err, 0)); print(f"{'OK  ' if not err else 'FAIL'} SVG figures in DOCX and Pages {err or ''}")
+
+# Kindle books with DRM are refused with a plain message; the Kindle EPUB carries its cover and an NCX.
+if (not filters or any("kindle" in f or "mobi" in f for f in filters)) and os.path.exists(os.path.join(FIXTURES, "sample.mobi")):
+    d = os.path.join(WORK, "kindle-checks"); os.makedirs(d)
+    locked = bytearray(open(os.path.join(FIXTURES, "sample.mobi"), "rb").read())
+    record0 = int.from_bytes(locked[78:82], "big"); locked[record0 + 13] = 2
+    open(os.path.join(d, "locked.azw"), "wb").write(locked)
+    r = run([APP, "--convert", os.path.join(d, "locked.azw"), "epub"])
+    err = None if r.returncode == 1 and "DRM" in r.stderr else f"DRM book: {r.stderr.strip()[-160:]}"
+    if not err:
+        shutil.copy2(os.path.join(FIXTURES, "sample.azw3"), os.path.join(d, "book.azw3"))
+        r = run([APP, "--convert", os.path.join(d, "book.azw3"), "kindle"])
+        out = next((l[4:] for l in r.stdout.splitlines() if l.startswith("OUT:")), None)
+        with zipfile.ZipFile(out) as z:
+            opf = z.read("EPUB/package.opf").decode("utf-8"); names = z.namelist()
+            text = " ".join(z.read(n).decode("utf-8") for n in names if n.endswith(".xhtml"))
+        if 'name="cover"' not in opf or "EPUB/toc.ncx" not in names: err = "Kindle EPUB without cover or NCX"
+        elif "Mock Turtle" not in text or "Lewis Carroll" not in opf: err = "book text or author missing"
+    results.append(("mobi", "kindle checks", "OK" if not err else "FAIL " + err, 0)); print(f"{'OK  ' if not err else 'FAIL'} Kindle DRM refusal and Send to Kindle EPUB {err or ''}")
 
 # PDF → PowerPoint keeps text editable (real text boxes) and stores photo-like pages as JPEG.
 if not filters or any("pptx" in f for f in filters):

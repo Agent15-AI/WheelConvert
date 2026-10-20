@@ -285,6 +285,60 @@ final class CoreTests: XCTestCase {
         XCTAssertEqual(writer.images.map(\.name), ["image-001.png", "image-002.jpg"])
     }
 
+    func testPalmDOCAndTrailingEntries() {
+        // "ab", a space+"c" pair, then a back reference 4 bytes back, 4 long (0b10, distance 4, length 4 − 3).
+        XCTAssertEqual(MOBIReader.palmDOC([0x02, 0x61, 0x62, 0xE3, 0x80, 0x21]), Array("ab cab c".utf8))
+        // A 3-byte entry (its size byte 0x83 is last), then the split-character byte (low bits 0: just itself).
+        XCTAssertEqual(MOBIReader.trailingSize(Array("text".utf8) + [0xA8, 0x00, 0x09, 0x83], flags: 0b11), 4)
+    }
+
+    /// A Palm database holding the given records, as Kindle books are stored.
+    private func palmDatabase(_ records: [[UInt8]], type: String = "BOOKMOBI") -> [UInt8] {
+        var bytes = [UInt8](repeating: 0, count: 78)
+        bytes.replaceSubrange(60..<68, with: Array(type.utf8))
+        bytes[76] = UInt8(records.count >> 8); bytes[77] = UInt8(records.count & 0xFF)
+        var offset = 78 + 8 * records.count
+        for record in records {
+            bytes += withUnsafeBytes(of: UInt32(offset).bigEndian, Array.init) + [0, 0, 0, 0]
+            offset += record.count
+        }
+        return bytes + records.flatMap { $0 }
+    }
+
+    func testHuffCDICDecodesPhrasesAndNestedPhrases() throws {
+        func be32(_ v: Int) -> [UInt8] { withUnsafeBytes(of: UInt32(v).bigEndian, Array.init) }
+        // Every 8-bit code is a terminal code whose phrase is the byte itself (phrase 255 - byte)…
+        var huff = Array("HUFF".utf8) + be32(0x18) + be32(24) + be32(24 + 1024) + [UInt8](repeating: 0, count: 8)
+        for _ in 0..<256 { huff += be32(255 << 8 | 0x80 | 8) }
+        huff += [UInt8](repeating: 0, count: 256)
+        var cdic = Array("CDIC".utf8) + be32(0x10) + be32(256) + be32(8)
+        var entries: [UInt8] = []
+        for k in 0..<256 {
+            cdic += [UInt8((512 + entries.count) >> 8), UInt8((512 + entries.count) & 0xFF)]
+            // …except "A", whose phrase is itself compressed and expands to "BC".
+            entries += k == 255 - 0x41 ? [0x00, 0x02, 0x42, 0x43] : [0x80, 0x01, UInt8(255 - k)]
+        }
+        cdic += entries
+        let database = try MOBIReader.PalmDatabase(palmDatabase([[0], huff, cdic]))
+        var decoder = try MOBIReader.HuffCDIC(database, first: 1, count: 2)
+        XCTAssertEqual(try decoder.unpack(Array("Hi A!".utf8)), Array("Hi BC!".utf8))
+    }
+
+    func testKindleBooksWithDRMAreRefusedPlainly() throws {
+        var record0 = [UInt8](repeating: 0, count: 0x110)
+        record0[0] = 0; record0[1] = 2        // PalmDOC compression
+        record0[13] = 2                       // Mobipocket encryption
+        record0.replaceSubrange(16..<20, with: Array("MOBI".utf8))
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".azw")
+        try Data(palmDatabase([record0, Array("text".utf8)])).write(to: url)
+        defer { try? FileManager.default.removeItem(at: url) }
+        XCTAssertThrowsError(try MOBIReader.read(url))
+        do { _ = try MOBIReader.read(url) } catch { XCTAssertTrue(error.localizedDescription.contains("DRM")) }
+        XCTAssertEqual(FileFormat.detect(URL(fileURLWithPath: "/x/book.azw3")), .mobi)
+        XCTAssertEqual(FileFormat.detect(URL(fileURLWithPath: "/x/book.epub")), .epub)
+        XCTAssertTrue(ConversionMatrix.outputs(for: .mobi).contains(.kindle))
+    }
+
     func testModeMatchingIsExact() {
         let settings = AppSettings(defaults: UserDefaults(suiteName: UUID().uuidString)!)
         XCTAssertEqual(settings.mode(for: [.shift]), .convert)

@@ -41,7 +41,7 @@ enum FileFormat: String, CaseIterable, Codable, Identifiable {
     case mp4, mov, mkv, webm, avi, wmv, gif
     case mp3, m4a, wav, flac, ogg, opus, aiff, wma
     case pdf
-    case docx, pages, md, txt, epub, rtf, rtfd, textClipping, html
+    case docx, pages, md, txt, epub, rtf, rtfd, textClipping, html, mobi, kindle
     case ppt, pptx
     case xlsx, xls, ods, csv, tsv
     case srt, vtt
@@ -61,6 +61,8 @@ enum FileFormat: String, CaseIterable, Codable, Identifiable {
         case .sevenZip: "7Z"
         case .pages: "Pages"
         case .raw: "Camera RAW"
+        case .mobi: "Kindle Book"
+        case .kindle: "Kindle"
         default: rawValue.uppercased()
         }
     }
@@ -70,6 +72,7 @@ enum FileFormat: String, CaseIterable, Codable, Identifiable {
         switch self {
         case .md: "MD"
         case .textClipping: "CLIPPING"
+        case .mobi: "MOBI"
         default: rawValue.uppercased()
         }
     }
@@ -80,7 +83,7 @@ enum FileFormat: String, CaseIterable, Codable, Identifiable {
         case .mp4, .mov, .mkv, .webm, .avi, .wmv, .gif: .video
         case .mp3, .m4a, .wav, .flac, .ogg, .opus, .aiff, .wma: .audio
         case .pdf: .pdf
-        case .docx, .pages, .md, .txt, .epub, .rtf, .rtfd, .textClipping, .html: .documents
+        case .docx, .pages, .md, .txt, .epub, .rtf, .rtfd, .textClipping, .html, .mobi, .kindle: .documents
         case .ppt, .pptx: .slides
         case .xlsx, .xls, .ods, .csv, .tsv: .spreadsheets
         case .srt, .vtt: .subtitles
@@ -134,6 +137,9 @@ enum FileFormat: String, CaseIterable, Codable, Identifiable {
         case .rtfd: ["rtfd"]
         case .textClipping: ["textclipping"]
         case .html: ["html", "htm"]
+        case .mobi: ["mobi", "azw3", "azw", "prc"]
+        // An EPUB made for Send to Kindle; files named .epub read as EPUB.
+        case .kindle: ["epub"]
         case .ppt: ["ppt"]
         case .pptx: ["pptx"]
         case .xlsx: ["xlsx"]
@@ -155,17 +161,17 @@ enum FileFormat: String, CaseIterable, Codable, Identifiable {
     var isLosslessAudio: Bool { [.wav, .flac, .aiff].contains(self) }
 
     /// Formats that only appear as conversion sources.
-    var isInputOnly: Bool { [.svg, .raw, .wma, .rtf, .rtfd, .textClipping, .ppt, .xls, .rar].contains(self) }
+    var isInputOnly: Bool { [.svg, .raw, .wma, .rtf, .rtfd, .textClipping, .mobi, .ppt, .xls, .rar].contains(self) }
 
     /// Formats that only appear as conversion targets.
-    var isOutputOnly: Bool { self == .html }
+    var isOutputOnly: Bool { self == .html || self == .kindle }
 
     /// Detects the format of a local file or package from its name, falling back to its type identifier.
     static func detect(_ url: URL) -> FileFormat? {
         let name = url.lastPathComponent.lowercased()
         if name.hasSuffix(".tar.gz") || name.hasSuffix(".tgz") { return .gzip }
         let ext = url.pathExtension.lowercased()
-        if !ext.isEmpty, let match = byExtension[ext], match != .html { return match }
+        if !ext.isEmpty, let match = byExtension[ext], !match.isOutputOnly { return match }
         guard let type = (try? url.resourceValues(forKeys: [.contentTypeKey]))?.contentType else { return nil }
         for (identifier, format) in typeFallbacks where type.conforms(to: UTType(identifier) ?? .data) && type != .data {
             return format

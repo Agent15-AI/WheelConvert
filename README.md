@@ -8,6 +8,9 @@ tool, or run a file action. Everything runs locally.
 - **⌘ Command** — File tools (compress, crop, trim, redact, merge, split, metadata, extract text, …)
 - **⌃ Control** — File actions (AirDrop, Float, Copy, Move, Copy Path, Terminal)
 
+Kindle books (MOBI and AZW3, DRM-free only) convert like any document, and the **Kindle** target makes an EPUB
+tuned for Send to Kindle: pictures resized to Kindle screens, a cover, and a table of contents Kindle can read.
+
 Presets are saved recipes, such as "Instagram 1080 px JPG" or "Email-size MP4 (under 25 MB)": a target format
 with its options, or a tool with its settings. Matching presets appear as extra petals on the Convert wheel.
 Manage them in Settings → Presets. Settings → Watch Folders runs a preset on every new file dropped into a

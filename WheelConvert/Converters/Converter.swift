@@ -144,7 +144,7 @@ enum PDFConverter {
             return try await OfficeHelper.run("pdf2pptx", source, single, extra: [options.officeLayout == .preservePages ? "pages" : "editable"], progress: progress)
         case .xlsx:
             return try await OfficeHelper.run("pdf2sheet", source, single, progress: progress)
-        case .docx, .pages, .epub, .md:
+        case .docx, .pages, .epub, .kindle, .md:
             let document = try open(source)
             let preserve = (target == .epub && options.epubLayout == .preservePages)
                 || ((target == .docx || target == .pages) && options.officeLayout == .preservePages)
@@ -254,6 +254,7 @@ enum DocumentConverter {
         case .txt: doc = try PlainTextReader.read(source)
         case .epub: doc = try EPUBReader.read(source)
         case .rtf, .rtfd, .textClipping: doc = try RichTextReader.read(source, format: input)
+        case .mobi: doc = try MOBIReader.read(source)
         default: throw WheelError("This file type is not supported.")
         }
         if doc.title == nil { doc.title = doc.inferredTitle ?? OutputNaming.baseName(of: source) }
@@ -277,7 +278,7 @@ enum DocumentConverter {
     static func write(_ doc: StructuredDocument, as target: FileFormat, destination: URL, progress: @escaping (Double) -> Void) async throws -> [URL] {
         var outputs = [destination]
         var doc = doc
-        if target == .docx || target == .pages { doc.blocks = await SVGRenderer.rasterizingImages(in: doc.blocks) }
+        if [.docx, .pages, .kindle].contains(target) { doc.blocks = await SVGRenderer.rasterizingImages(in: doc.blocks) }
         switch target {
         case .pdf:
             var writer = HTMLWriter()
@@ -300,8 +301,8 @@ enum DocumentConverter {
             }
         case .txt:
             try PlainTextWriter.write(doc).write(to: destination, atomically: false, encoding: .utf8)
-        case .epub:
-            try EPUBWriter.write(doc).write(to: destination)
+        case .epub, .kindle:
+            try EPUBWriter.write(doc, forKindle: target == .kindle).write(to: destination)
         case .html:
             var writer = HTMLWriter()
             try writer.document(doc, css: HTMLWriter.screenCSS).write(to: destination, atomically: false, encoding: .utf8)

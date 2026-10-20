@@ -190,6 +190,23 @@ enum ImageSniffer {
         }
     }
 
+    /// JPEG or PNG at most 1600 pixels on the long side, about a Kindle screen: books stay small
+    /// enough to send, and photos without transparency become JPEG.
+    static func kindleReady(_ data: Data) -> Data {
+        let data = portable(data)
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let width = props[kCGImagePropertyPixelWidth] as? Int, let height = props[kCGImagePropertyPixelHeight] as? Int,
+              max(width, height) > 1600 else { return data }
+        let options = [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceCreateThumbnailWithTransform: true, kCGImageSourceThumbnailMaxPixelSize: 1600] as CFDictionary
+        guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options) else { return data }
+        if props[kCGImagePropertyHasAlpha] as? Bool == true { return png(image) ?? data }
+        let output = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(output, "public.jpeg" as CFString, 1, nil) else { return data }
+        CGImageDestinationAddImage(destination, image, [kCGImageDestinationLossyCompressionQuality: 0.85] as CFDictionary)
+        return CGImageDestinationFinalize(destination) ? output as Data : data
+    }
+
     static func png(_ image: CGImage) -> Data? {
         let output = NSMutableData()
         guard let destination = CGImageDestinationCreateWithData(output, "public.png" as CFString, 1, nil) else { return nil }
