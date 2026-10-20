@@ -186,11 +186,15 @@ enum ImageSniffer {
         default:
             guard let source = CGImageSourceCreateWithData(data as CFData, nil),
                   let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return data }
-            let output = NSMutableData()
-            guard let destination = CGImageDestinationCreateWithData(output, "public.png" as CFString, 1, nil) else { return data }
-            CGImageDestinationAddImage(destination, image, nil)
-            return CGImageDestinationFinalize(destination) ? output as Data : data
+            return png(image) ?? data
         }
+    }
+
+    static func png(_ image: CGImage) -> Data? {
+        let output = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(output, "public.png" as CFString, 1, nil) else { return nil }
+        CGImageDestinationAddImage(destination, image, nil)
+        return CGImageDestinationFinalize(destination) ? output as Data : nil
     }
 
     /// PNG, JPEG or GIF bytes for formats that only accept those (DOCX, Pages); nil when the image

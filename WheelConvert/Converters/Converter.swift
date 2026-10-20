@@ -276,6 +276,8 @@ enum DocumentConverter {
     /// - Returns: What was saved: `destination`, plus for Markdown an "<name> images" folder beside it.
     static func write(_ doc: StructuredDocument, as target: FileFormat, destination: URL, progress: @escaping (Double) -> Void) async throws -> [URL] {
         var outputs = [destination]
+        var doc = doc
+        if target == .docx || target == .pages { doc.blocks = await SVGRenderer.rasterizingImages(in: doc.blocks) }
         switch target {
         case .pdf:
             var writer = HTMLWriter()

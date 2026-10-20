@@ -183,6 +183,23 @@ if not filters or any("webp" in f for f in filters):
     elif any(gone[:4]): err = f"not stripped {gone}"
     results.append(("jpg", "webp metadata", "OK" if not err else "FAIL " + err, 0)); print(f"{'OK  ' if not err else 'FAIL'} WebP metadata {err or ''}")
 
+# SVG figures in Word and Pages output are drawn as PNG instead of falling back to their description.
+if not filters or any("svg" in f for f in filters):
+    d = os.path.join(WORK, "svg-figure"); os.makedirs(d)
+    shutil.copy2(os.path.join(FIXTURES, "sample.svg"), os.path.join(d, "logo.svg"))
+    with open(os.path.join(d, "report.md"), "w") as f: f.write("# Report\n\n![Company logo](logo.svg)\n\nDone.\n")
+    err = None
+    for fmt, part in [("docx", "word/media/"), ("pages", "Data/")]:
+        r = run([APP, "--convert", os.path.join(d, "report.md"), fmt])
+        out = next((l[4:] for l in r.stdout.splitlines() if l.startswith("OUT:")), None)
+        if not out: err = f"{fmt}: {r.stderr.strip()[-200:]}"; break
+        with zipfile.ZipFile(out) as z:
+            names = z.namelist()
+            text = z.read("word/document.xml").decode("utf-8") if fmt == "docx" else ""
+        if not any(n.startswith(part) and n.endswith(".png") for n in names): err = f"{fmt}: no PNG figure in {names}"; break
+        if "[Company logo]" in text: err = f"{fmt}: fell back to the description"; break
+    results.append(("md", "svg figure", "OK" if not err else "FAIL " + err, 0)); print(f"{'OK  ' if not err else 'FAIL'} SVG figures in DOCX and Pages {err or ''}")
+
 # PDF → PowerPoint keeps text editable (real text boxes) and stores photo-like pages as JPEG.
 if not filters or any("pptx" in f for f in filters):
     err = None
