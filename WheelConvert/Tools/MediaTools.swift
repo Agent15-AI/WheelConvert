@@ -288,6 +288,26 @@ enum MediaTools {
         return try await render(["-i", source.path, "-map", "0", "-map", "-0:a", "-c", "copy"], to: output(source, suffix: "Muted"), duration: info.duration, progress: progress)
     }
 
+    /// The container each audio codec can be copied into untouched.
+    static let audioCopyFormats: [String: FileFormat] = ["aac": .m4a, "alac": .m4a, "mp3": .mp3, "opus": .opus, "vorbis": .ogg, "flac": .flac]
+
+    /// A video's sound as an audio file: the track copied as it is when an audio format holds its codec
+    /// (no quality loss, near-instant), otherwise encoded to AAC.
+    static func extractAudio(_ source: URL, progress: @escaping (Double) -> Void) async throws -> URL {
+        let info = try await MediaInfo.probe(source)
+        guard info.hasAudio else { throw WheelError("This file has no audio track.") }
+        let format: FileFormat, codec: [String]
+        if let copy = audioCopyFormats[info.audioCodec] {
+            (format, codec) = (copy, ["-c:a", "copy"])
+        } else if info.audioCodec.hasPrefix("pcm_") {
+            (format, codec) = (.wav, audioEncoder(.wav, info: info))
+        } else {
+            (format, codec) = (.m4a, ["-c:a", "aac_at", "-b:a", "256k"])
+        }
+        let args = ["-i", source.path, "-map", "0:a:0", "-vn", "-sn", "-dn"] + codec
+        return try await render(args, to: output(source, suffix: "Audio", format: format), duration: info.duration, progress: progress)
+    }
+
     // MARK: Join
 
     static func join(_ sources: [URL], progress: @escaping (Double) -> Void) async throws -> URL {

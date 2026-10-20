@@ -15,6 +15,7 @@ enum ToolRequest {
     case cropVideo(ToolOptions.VideoCrop)
     case speed(ToolOptions.Speed)
     case mute
+    case extractAudio
     case join(ToolOptions.Order)
     case snapshots(ToolOptions.Snapshots)
     case split(ToolOptions.Split)
@@ -55,6 +56,7 @@ enum ToolRequest {
         case .cropVideo: return .cropVideo(try d.decode(ToolOptions.VideoCrop.self, from: data, defaults: ToolOptions.VideoCrop()))
         case .changeVideoSpeed: return .speed(try d.decode(ToolOptions.Speed.self, from: data, defaults: ToolOptions.Speed()))
         case .muteVideo: return .mute
+        case .extractAudio: return .extractAudio
         case .joinVideos: return .join(try d.decode(ToolOptions.Order.self, from: data, defaults: ToolOptions.Order()))
         case .videoSnapshots: return .snapshots(try d.decode(ToolOptions.Snapshots.self, from: data, defaults: ToolOptions.Snapshots()))
         case .splitVideo: return .split(try d.decode(ToolOptions.Split.self, from: data, defaults: ToolOptions.Split()))
@@ -96,6 +98,7 @@ enum ToolRunner {
         case .cropVideo(let options): return [try await MediaTools.crop(url, options: options, progress: progress)]
         case .speed(let options): return [try await MediaTools.speed(url, options: options, progress: progress)]
         case .mute: return [try await MediaTools.mute(url, progress: progress)]
+        case .extractAudio: return [try await MediaTools.extractAudio(url, progress: progress)]
         case .snapshots(let options): return [try await MediaTools.snapshots(url, options: options, progress: progress)]
         case .split(let options): return [try await MediaTools.split(url, options: options, progress: progress)]
         case .redactVideo(let options): return [try await MediaTools.redact(url, options: options, progress: progress)]
@@ -138,7 +141,7 @@ enum ToolRunner {
             }
         }
         // Muting and metadata edits copy the streams; WebM and GIF are encoded in software.
-        let hardwareVideo = ![.muteVideo, .removeMetadata].contains(tool)
+        let hardwareVideo = ![.muteVideo, .extractAudio, .removeMetadata].contains(tool)
             && urls.contains { FileFormat.detect($0).map { $0.category == .video && $0 != .webm && $0 != .gif } ?? false }
         return JobCenter.shared.run(title: title, items: urls, parallel: JobCenter.parallelLimit(hardwareVideo: hardwareVideo), canAsk: canAsk) { url, progress in
             try await run(request, on: url, progress: progress)

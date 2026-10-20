@@ -10,6 +10,8 @@ enum ToolLauncher {
         switch tool {
         case .muteVideo:
             ToolRunner.submit(tool, request: .mute, urls: urls)
+        case .extractAudio:
+            ToolRunner.submit(tool, request: .extractAudio, urls: urls)
         case .extractArchive:
             ToolRunner.submit(tool, request: .extract, urls: urls)
         case .extractText:
@@ -112,7 +114,7 @@ struct ToolRoot: View {
         case .mergePDF: OrderToolView(urls: urls, primary: "Merge PDFs", note: "Documents are combined in this order.", close: close) { submit(.mergePDF(.init(paths: $0.map(\.path))), urls: $0) }
         case .organizePDF: OrganizePDFView(url: urls[0], close: close) { submit(.organizePDF($0)) }
         case .splitPDF: SplitPDFView(url: urls[0], close: close) { submit(.splitPDF($0)) }
-        case .muteVideo, .extractArchive, .readQRCode, .extractText: EmptyView()
+        case .muteVideo, .extractAudio, .extractArchive, .readQRCode, .extractText: EmptyView()
         }
     }
 }

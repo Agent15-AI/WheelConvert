@@ -5,7 +5,7 @@ Finder, press a modifier key, and a wheel appears under the pointer: drop on a p
 tool, or run a file action. Everything runs locally.
 
 - **⇧ Shift** — Convert (images including camera RAW, video, audio, PDF, documents, slides, spreadsheets, subtitles, archives)
-- **⌘ Command** — File tools (compress, crop, trim, redact, merge, split, metadata, extract text, …)
+- **⌘ Command** — File tools (compress, crop, trim, redact, merge, split, metadata, extract text, extract audio, …)
 - **⌃ Control** — File actions (AirDrop, Float, Copy, Move, Copy Path, Terminal)
 
 Kindle books (MOBI and AZW3, DRM-free only) convert like any document, and the **Kindle** target makes an EPUB

@@ -4,7 +4,7 @@ import Foundation
 enum ToolKind: String, CaseIterable, Codable, Identifiable {
     case compress, removeMetadata
     case editImage, annotateImage, frameImage, cropImage, redactImage, createPDF, createCollage, readQRCode, extractText
-    case trimVideo, cropVideo, changeVideoSpeed, muteVideo, joinVideos, videoSnapshots, splitVideo, redactVideo
+    case trimVideo, cropVideo, changeVideoSpeed, muteVideo, extractAudio, joinVideos, videoSnapshots, splitVideo, redactVideo
     case normalizeAudio, audioToVideo, trimAudio, audioChannels, redactAudio
     case mergePDF, organizePDF, splitPDF
     case extractArchive
@@ -28,6 +28,7 @@ enum ToolKind: String, CaseIterable, Codable, Identifiable {
         case .cropVideo: "Crop Video"
         case .changeVideoSpeed: "Change Speed"
         case .muteVideo: "Mute"
+        case .extractAudio: "Extract Audio"
         case .joinVideos: "Join Videos"
         case .videoSnapshots: "Save Frames"
         case .splitVideo: "Split Video"
@@ -60,6 +61,7 @@ enum ToolKind: String, CaseIterable, Codable, Identifiable {
         case .trimVideo, .trimAudio: "TRIM"
         case .changeVideoSpeed: "SPEED"
         case .muteVideo: "MUTE"
+        case .extractAudio: "AUDIO"
         case .joinVideos: "JOIN"
         case .videoSnapshots: "FRAMES"
         case .splitVideo, .splitPDF: "SPLIT"
@@ -89,6 +91,7 @@ enum ToolKind: String, CaseIterable, Codable, Identifiable {
         case .trimVideo, .trimAudio: "timeline.selection"
         case .changeVideoSpeed: "gauge.with.dots.needle.67percent"
         case .muteVideo: "speaker.slash.fill"
+        case .extractAudio: "music.note"
         case .joinVideos: "rectangle.stack.badge.plus"
         case .videoSnapshots: "camera"
         case .splitVideo: "rectangle.split.2x1"
@@ -121,6 +124,7 @@ enum ToolKind: String, CaseIterable, Codable, Identifiable {
         case .cropVideo: "Cropping video"
         case .changeVideoSpeed: "Changing speed"
         case .muteVideo: "Muting"
+        case .extractAudio: "Extracting audio"
         case .joinVideos: "Joining videos"
         case .videoSnapshots: "Saving frames"
         case .splitVideo: "Splitting video"
@@ -136,7 +140,7 @@ enum ToolKind: String, CaseIterable, Codable, Identifiable {
     }
 
     /// Tools that run straight from the wheel without an options window.
-    var runsImmediately: Bool { [.muteVideo, .extractArchive, .readQRCode, .extractText].contains(self) }
+    var runsImmediately: Bool { [.muteVideo, .extractAudio, .extractArchive, .readQRCode, .extractText].contains(self) }
 
     static let rasterImages: Set<FileFormat> = [.jpg, .png, .webp, .heic, .tiff, .avif, .bmp]
     static let editableVideo: Set<FileFormat> = [.mp4, .mov, .mkv, .webm, .avi, .wmv, .gif]
@@ -164,7 +168,7 @@ enum ToolKind: String, CaseIterable, Codable, Identifiable {
             var tools: [ToolKind] = [.compress]
             if !gif { tools.append(.removeMetadata) }
             if single { tools += [.trimVideo, .cropVideo, .changeVideoSpeed] }
-            if !gif { tools.append(.muteVideo) }
+            if !gif { tools += [.muteVideo, .extractAudio] }
             if single { tools += [.videoSnapshots, .splitVideo] }
             if single && !gif { tools.append(.redactVideo) }
             if many && !gif { tools.append(.joinVideos) }

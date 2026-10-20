@@ -63,6 +63,10 @@ CASES = [
     ("speed 0.5 no pitch", "changeVideoSpeed", ["sample.avi"], {"factor": 0.5, "preservePitch": False}, "duration:6"),
     ("mute", "muteVideo", ["sample.mov"], {}, "noaudio"),
     ("join", "joinVideos", ["sample.mp4", "sample.webm", "sample.mkv"], {}, "duration:9"),
+    ("extract audio aac", "extractAudio", ["sample.mp4"], {}, "audio:aac:m4a"),
+    ("extract audio vorbis", "extractAudio", ["sample.webm"], {}, "audio:vorbis:ogg"),
+    ("extract audio mp3", "extractAudio", ["sample.avi"], {}, "audio:mp3:mp3"),
+    ("extract audio wma", "extractAudio", ["sample.wmv"], {}, "audio:aac:m4a"),
     ("snapshots", "videoSnapshots", ["sample.mp4"], {"times": [0.5, 1.5, 2.5]}, "folder"),
     ("split clips", "splitVideo", ["sample.mp4"], {"points": [1, 2]}, "folder"),
     ("split merged", "splitVideo", ["sample.mp4"], {"points": [1, 2], "removed": [1], "export": "merged"}, "duration:2"),
@@ -151,6 +155,10 @@ for index, (name, tool, files, options, check) in enumerate(CASES):
             elif check.startswith("duration:"):
                 d = float(p["format"].get("duration", 0)); want = float(check.split(":")[1])
                 if abs(d - want) > 0.35: err = f"duration {d:.2f} != {want}"
+            elif check.startswith("audio:"):
+                _, codec, ext = check.split(":")
+                kinds = [(s["codec_type"], s.get("codec_name")) for s in p["streams"]]
+                if kinds != [("audio", codec)] or not out.endswith("." + ext): err = f"streams {kinds} in {os.path.basename(out)}"
             elif check == "noaudio":
                 if any(s["codec_type"] == "audio" for s in p["streams"]): err = "still has audio"
             elif check.startswith("channels:"):
