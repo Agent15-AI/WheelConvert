@@ -23,7 +23,7 @@ settings:
     SWIFT_EMIT_LOC_STRINGS: YES
     LOCALIZATION_PREFERS_STRING_CATALOGS: YES
     # Sparkle: updates are checked only when the public EdDSA key is set (README → Releasing).
-    SPARKLE_PUBLIC_KEY: ""
+    SPARKLE_PUBLIC_KEY: "Mgpoi71sCjoUlVkqPUwtN9RYGPCuElAEIZ9q0K+UU6k="
     SPARKLE_FEED_URL: https://github.com/Agent15-AI/WheelConvert/releases/latest/download/appcast.xml
 packages:
   Sparkle:
