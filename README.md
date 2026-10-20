@@ -4,7 +4,7 @@ A free macOS menu bar app that converts and edits files while you drag them. Sta
 Finder, press a modifier key, and a wheel appears under the pointer: drop on a petal to convert, open a
 tool, or run a file action. Everything runs locally.
 
-- **⇧ Shift** — Convert (images, video, audio, PDF, documents, slides, spreadsheets, subtitles, archives)
+- **⇧ Shift** — Convert (images including camera RAW, video, audio, PDF, documents, slides, spreadsheets, subtitles, archives)
 - **⌘ Command** — File tools (compress, crop, trim, redact, merge, split, metadata, extract text, …)
 - **⌃ Control** — File actions (AirDrop, Float, Copy, Move, Copy Path, Terminal)
 
@@ -80,7 +80,7 @@ The Xcode build embeds and signs the vendor tools (`scripts/embed-vendor.sh`).
 ## Testing
 
 ```bash
-python3 -I scripts/test-conversions.py   # every conversion in the matrix, outputs validated
+python3 -I scripts/test-conversions.py   # every conversion in the matrix, outputs validated (fetches two CC0 raw samples once)
 python3 -I scripts/test-tools.py         # every tool through the CLI, plus preview start-up times on hour-long videos
 zsh scripts/run-logic-tests.sh           # unit tests (drag state machine, naming, parsers) without an XCTest host
 python3 -I scripts/test-malformed.py     # empty, random and truncated inputs must fail cleanly, never crash or hang

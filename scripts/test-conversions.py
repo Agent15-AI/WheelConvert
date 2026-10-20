@@ -85,6 +85,21 @@ def validate(path, fmt):
         return None if text.strip() else "no text"
     return None
 
+# Camera raw samples (CC0, raw.pixls.us), fetched once and checked against their published files.
+RAW_SAMPLES = {
+    "sample.nef": ("https://raw.pixls.us/data/Nikon/D50/DSC_5155.NEF", "9f94c27672a63f946c92d43910ef0c266dffaa14dae0007ae00ac72d2c684935"),
+    "sample.dng": ("https://raw.pixls.us/data/Pentax/K10D/IMGP5398.DNG", "e7ea961edfea725ad2753f261d20da5e6addd5d641e5bcbc373999710f27941f"),
+}
+for name, (url, digest) in RAW_SAMPLES.items():
+    path = os.path.join(FIXTURES, name)
+    if os.path.exists(path): continue
+    part = path + ".part"
+    if run(["curl", "-fsSL", "--max-time", "300", "-o", part, url], timeout=320).returncode != 0:
+        print(f"SKIP {name}: could not download {url}"); continue
+    if run(["shasum", "-a", "256", part]).stdout.split()[0] != digest:
+        os.remove(part); print(f"SKIP {name}: checksum mismatch"); continue
+    os.rename(part, path)
+
 shutil.rmtree(WORK, ignore_errors=True)
 os.makedirs(WORK)
 results = []

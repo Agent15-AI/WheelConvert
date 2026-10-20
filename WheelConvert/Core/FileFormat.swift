@@ -37,7 +37,7 @@ enum FormatCategory: String, CaseIterable, Codable, Identifiable {
 
 /// Every file format WheelConvert reads or writes.
 enum FileFormat: String, CaseIterable, Codable, Identifiable {
-    case jpg, png, webp, heic, tiff, avif, bmp, svg
+    case jpg, png, webp, heic, tiff, avif, bmp, svg, raw
     case mp4, mov, mkv, webm, avi, wmv, gif
     case mp3, m4a, wav, flac, ogg, opus, aiff, wma
     case pdf
@@ -59,6 +59,7 @@ enum FileFormat: String, CaseIterable, Codable, Identifiable {
         case .textClipping: "Text Clipping"
         case .gzip: "GZIP"
         case .pages: "Pages"
+        case .raw: "Camera RAW"
         default: rawValue.uppercased()
         }
     }
@@ -74,7 +75,7 @@ enum FileFormat: String, CaseIterable, Codable, Identifiable {
 
     var category: FormatCategory {
         switch self {
-        case .jpg, .png, .webp, .heic, .tiff, .avif, .bmp, .svg: .images
+        case .jpg, .png, .webp, .heic, .tiff, .avif, .bmp, .svg, .raw: .images
         case .mp4, .mov, .mkv, .webm, .avi, .wmv, .gif: .video
         case .mp3, .m4a, .wav, .flac, .ogg, .opus, .aiff, .wma: .audio
         case .pdf: .pdf
@@ -105,6 +106,8 @@ enum FileFormat: String, CaseIterable, Codable, Identifiable {
         case .avif: ["avif"]
         case .bmp: ["bmp", "dib"]
         case .svg: ["svg"]
+        // Camera raw files ImageIO develops: Adobe DNG, Canon, Nikon, Sony, Fujifilm, Olympus, Panasonic, Pentax, Leica…
+        case .raw: ["dng", "cr2", "cr3", "crw", "nef", "nrw", "arw", "srf", "sr2", "raf", "orf", "rw2", "pef", "srw", "rwl", "3fr", "fff", "iiq", "erf", "mrw", "dcr", "kdc", "mos", "x3f", "raw"]
         case .mp4: ["mp4", "m4v"]
         case .mov: ["mov", "qt"]
         case .mkv: ["mkv"]
@@ -150,7 +153,7 @@ enum FileFormat: String, CaseIterable, Codable, Identifiable {
     var isLosslessAudio: Bool { [.wav, .flac, .aiff].contains(self) }
 
     /// Formats that only appear as conversion sources.
-    var isInputOnly: Bool { [.svg, .wma, .rtf, .rtfd, .textClipping, .ppt, .xls, .rar].contains(self) }
+    var isInputOnly: Bool { [.svg, .raw, .wma, .rtf, .rtfd, .textClipping, .ppt, .xls, .rar].contains(self) }
 
     /// Formats that only appear as conversion targets.
     var isOutputOnly: Bool { self == .html }
@@ -177,7 +180,7 @@ enum FileFormat: String, CaseIterable, Codable, Identifiable {
     private static let typeFallbacks: [(String, FileFormat)] = [
         ("public.jpeg", .jpg), ("public.png", .png), ("org.webmproject.webp", .webp), ("public.heic", .heic),
         ("public.heif", .heic), ("public.tiff", .tiff), ("public.avif", .avif), ("com.microsoft.bmp", .bmp),
-        ("public.svg-image", .svg), ("com.compuserve.gif", .gif), ("public.mpeg-4", .mp4),
+        ("public.svg-image", .svg), ("public.camera-raw-image", .raw), ("com.compuserve.gif", .gif), ("public.mpeg-4", .mp4),
         ("com.apple.quicktime-movie", .mov), ("public.mp3", .mp3), ("com.apple.m4a-audio", .m4a),
         ("com.microsoft.waveform-audio", .wav), ("public.aiff-audio", .aiff), ("com.adobe.pdf", .pdf),
         ("org.openxmlformats.wordprocessingml.document", .docx), ("com.apple.iwork.pages.sffpages", .pages),

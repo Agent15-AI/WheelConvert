@@ -22,6 +22,9 @@ final class CoreTests: XCTestCase {
         XCTAssertEqual(FileFormat.detect(URL(fileURLWithPath: "/x/a.tgz")), .gzip)
         XCTAssertEqual(FileFormat.detect(URL(fileURLWithPath: "/x/a.markdown")), .md)
         XCTAssertNil(FileFormat.detect(URL(fileURLWithPath: "/x/a.unknownext")))
+        for name in ["a.DNG", "a.cr3", "a.NEF", "a.arw", "a.raf", "a.orf", "a.rw2"] { XCTAssertEqual(FileFormat.detect(URL(fileURLWithPath: "/x/" + name)), .raw) }
+        XCTAssertTrue(FileFormat.raw.isInputOnly)
+        XCTAssertTrue(ConversionMatrix.outputs(for: .raw).contains(.jpg))
     }
 
     func testUniqueNamingNeverOverwrites() throws {
