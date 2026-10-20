@@ -48,7 +48,7 @@ struct ConversionOptions: Codable, Equatable {
         var title: String { self == .editable ? "Editable Text" : "Preserve Pages" }
         var detail: String {
             switch self {
-            case .editable: "Paragraphs, headings, and tables that reflow when edited. Scanned pages are read with OCR; illustrations stay inline."
+            case .editable: "Text you can edit: paragraphs, headings and tables in documents; text boxes over the page artwork in PowerPoint. Scanned pages are read with OCR in documents."
             case .preservePages: "Every page kept as a sharp image, including tables, equations, and scans. Text can't be edited."
             }
         }
@@ -104,7 +104,7 @@ enum ConversionSetting: CaseIterable {
         case .flac: [.audioSampleDepth, .compression, .preserveMetadata]
         case .zip, .gzip: [.compression]
         case .epub: [.epubLayout]
-        case .docx, .pages: [.officeLayout]
+        case .docx, .pages, .pptx: [.officeLayout]
         default: []
         }
     }

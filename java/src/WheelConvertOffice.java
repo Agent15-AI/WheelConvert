@@ -1,9 +1,11 @@
 import de.rototor.pdfbox.graphics2d.PdfBoxGraphics2D;
 import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.contentstream.operator.color.*;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
+import org.apache.pdfbox.pdmodel.font.PDFont;
 import org.apache.pdfbox.pdmodel.graphics.form.PDFormXObject;
 import org.apache.pdfbox.rendering.ImageType;
 import org.apache.pdfbox.rendering.PDFRenderer;
@@ -67,7 +69,7 @@ public final class WheelConvertOffice {
             if (!Files.isRegularFile(in)) throw new UserError("The source file could not be read.");
             switch (args[0]) {
                 case "slides" -> slides(in, out, args.length > 3 ? args[3] : "pdf", args.length > 4 ? Float.parseFloat(args[4]) : 2f);
-                case "pdf2pptx" -> pdfToPptx(in, out);
+                case "pdf2pptx" -> pdfToPptx(in, out, args.length <= 3 || !args[3].equals("pages"));
                 case "sheet" -> writeSheets(readSheets(in), out);
                 case "sheet2html" -> writeHtml(readSheets(in), out, in.getFileName().toString());
                 case "pdf2sheet" -> writeSheets(readPdfTables(in), out);
@@ -179,27 +181,40 @@ public final class WheelConvertOffice {
         }
     }
 
-    /** One slide per PDF page, each page rendered as a sharp image so the layout survives exactly. */
-    static void pdfToPptx(Path in, Path out) throws Exception {
+    /**
+     * One slide per PDF page. With {@code editable}, upright text becomes real text boxes placed where
+     * the PDF has it, over a picture of everything else on the page; otherwise the whole page is a
+     * picture. Pictures are JPEG when that is much smaller (photos, scans) and PNG for crisp line art.
+     */
+    static void pdfToPptx(Path in, Path out, boolean editable) throws Exception {
         try (PDDocument pdf = Loader.loadPDF(in.toFile())) {
             int count = pdf.getNumberOfPages();
             if (count == 0) throw new UserError("This PDF has no pages.");
             PDRectangle first = pdf.getPage(0).getCropBox();
             Dimension slideSize = new Dimension(Math.max(1, Math.round(rotatedWidth(pdf.getPage(0), first))),
                     Math.max(1, Math.round(rotatedHeight(pdf.getPage(0), first))));
-            PDFRenderer renderer = new PDFRenderer(pdf);
+            PDFRenderer renderer = new PDFRenderer(pdf), textless = new TextlessRenderer(pdf);
             try (XMLSlideShow show = new XMLSlideShow()) {
                 show.setPageSize(slideSize);
                 for (int i = 0; i < count; i++) {
-                    BufferedImage image = renderer.renderImageWithDPI(i, 200, ImageType.RGB);
-                    ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-                    ImageIO.write(image, "png", bytes);
-                    XSLFPictureData data = show.addPicture(bytes.toByteArray(), PictureData.PictureType.PNG);
+                    PDPage page = pdf.getPage(i);
+                    // Rotated pages keep the picture: their text coordinates don't follow the rotation.
+                    List<Glyph> glyphs = editable && page.getRotation() % 360 == 0 ? GlyphCollector.collect(pdf, i) : List.of();
+                    float pageWidth = rotatedWidth(page, page.getCropBox()), pageHeight = rotatedHeight(page, page.getCropBox());
+                    // 200 DPI, but no wider than 4096 pixels: poster-sized pages would otherwise make huge pictures.
+                    float dpi = Math.min(200f, 4096f / (Math.max(pageWidth, pageHeight) / 72f));
+                    BufferedImage image = (glyphs.isEmpty() ? renderer : textless).renderImageWithDPI(i, dpi, ImageType.RGB);
+                    double fit = Math.min(slideSize.width / (double) pageWidth, slideSize.height / (double) pageHeight);
+                    double left = (slideSize.width - pageWidth * fit) / 2, top = (slideSize.height - pageHeight * fit) / 2;
                     XSLFSlide slide = show.createSlide();
-                    XSLFPictureShape picture = slide.createPicture(data);
-                    double fit = Math.min(slideSize.width / (double) image.getWidth(), slideSize.height / (double) image.getHeight());
-                    double w = image.getWidth() * fit, h = image.getHeight() * fit;
-                    picture.setAnchor(new Rectangle2D.Double((slideSize.width - w) / 2, (slideSize.height - h) / 2, w, h));
+                    if (glyphs.isEmpty() || !isBlank(image)) {
+                        boolean[] jpeg = {false};
+                        byte[] bytes = pictureBytes(image, jpeg);
+                        XSLFPictureData data = show.addPicture(bytes, jpeg[0] ? PictureData.PictureType.JPEG : PictureData.PictureType.PNG);
+                        XSLFPictureShape picture = slide.createPicture(data);
+                        picture.setAnchor(new Rectangle2D.Double(left, top, pageWidth * fit, pageHeight * fit));
+                    }
+                    for (List<Line> block : blocks(lines(glyphs))) addTextBox(slide, block, fit, left, top);
                     progress((i + 1.0) / count);
                 }
                 try (OutputStream stream = Files.newOutputStream(out)) {
@@ -210,6 +225,276 @@ public final class WheelConvertOffice {
             throw new UserError("The PDF cannot be read or is password-protected.");
         }
         emit(out);
+    }
+
+    /** PNG for line art and text-free pages; JPEG when it's under half the size (photos, scans). */
+    static byte[] pictureBytes(BufferedImage image, boolean[] jpeg) throws IOException {
+        ByteArrayOutputStream png = new ByteArrayOutputStream();
+        ImageIO.write(image, "png", png);
+        ByteArrayOutputStream jpg = new ByteArrayOutputStream();
+        ImageWriter writer = ImageIO.getImageWritersByFormatName("jpeg").next();
+        ImageWriteParam param = writer.getDefaultWriteParam();
+        param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+        param.setCompressionQuality(0.85f);
+        try (ImageOutputStream stream = ImageIO.createImageOutputStream(jpg)) {
+            writer.setOutput(stream);
+            writer.write(null, new IIOImage(image, null, null), param);
+        } finally {
+            writer.dispose();
+        }
+        jpeg[0] = jpg.size() * 2 < png.size();
+        return jpeg[0] ? jpg.toByteArray() : png.toByteArray();
+    }
+
+    /** Nothing but white left once the text is lifted out. */
+    static boolean isBlank(BufferedImage image) {
+        for (int y = 0; y < image.getHeight(); y += 2) {
+            for (int x = 0; x < image.getWidth(); x += 2) {
+                int rgb = image.getRGB(x, y);
+                if (((rgb >> 16) & 255) < 250 || ((rgb >> 8) & 255) < 250 || (rgb & 255) < 250) return false;
+            }
+        }
+        return true;
+    }
+
+    /** A character the slide shows as text, in page points (origin top-left, y at the baseline). */
+    record Glyph(String text, float x, float right, float y, float size, String font, boolean bold, boolean italic, int color) { }
+
+    record Line(List<Glyph> glyphs) {
+        float x() { return glyphs.get(0).x(); }
+        float right() { return glyphs.get(glyphs.size() - 1).right(); }
+        float y() { return glyphs.get(0).y(); }
+        float size() { return (float) glyphs.stream().mapToDouble(Glyph::size).max().orElse(12); }
+    }
+
+    /**
+     * Whether a glyph becomes slide text: upright, with a known character, in a font that isn't drawn
+     * by its own procedures (Type 3). The collector and {@link TextlessRenderer} share this rule, so
+     * every glyph ends up either in a text box or in the picture, never both or neither.
+     */
+    static boolean liftable(PDFont font, int code, org.apache.pdfbox.util.Matrix matrix) {
+        if (font == null || font instanceof org.apache.pdfbox.pdmodel.font.PDType3Font) return false;
+        if (Math.abs(matrix.getShearX()) > 0.001f || Math.abs(matrix.getShearY()) > 0.001f || matrix.getScaleX() <= 0 || matrix.getScaleY() <= 0) return false;
+        String text;
+        try { text = font.toUnicode(code); } catch (Exception e) { return false; }
+        return text != null && !text.isEmpty() && !text.contains("\uFFFD") && text.codePoints().noneMatch(Character::isISOControl);
+    }
+
+    /** Renders a page without the glyphs that become text boxes. */
+    static final class TextlessRenderer extends PDFRenderer {
+        TextlessRenderer(PDDocument document) { super(document); }
+
+        @Override
+        protected org.apache.pdfbox.rendering.PageDrawer createPageDrawer(org.apache.pdfbox.rendering.PageDrawerParameters parameters) throws IOException {
+            return new org.apache.pdfbox.rendering.PageDrawer(parameters) {
+                @Override
+                protected void showFontGlyph(org.apache.pdfbox.util.Matrix matrix, PDFont font, int code, org.apache.pdfbox.util.Vector displacement) throws IOException {
+                    if (getGraphicsState().getTextState().getRenderingMode() == org.apache.pdfbox.pdmodel.graphics.state.RenderingMode.NEITHER
+                            || !liftable(font, code, matrix)) {
+                        super.showFontGlyph(matrix, font, code, displacement);
+                    }
+                }
+            };
+        }
+    }
+
+    /** Visible, liftable glyphs of one page with their font, size, style and color. */
+    static final class GlyphCollector extends PDFTextStripper {
+        final List<Glyph> glyphs = new ArrayList<>();
+        final Map<String, String> families = new HashMap<>();
+
+        GlyphCollector() throws IOException {
+            // Text extraction ignores color operators; these keep the graphics state's colors current.
+            for (var op : List.of(new SetStrokingColorSpace(this), new SetNonStrokingColorSpace(this), new SetStrokingColor(this), new SetNonStrokingColor(this),
+                    new SetStrokingColorN(this), new SetNonStrokingColorN(this), new SetStrokingDeviceGrayColor(this), new SetNonStrokingDeviceGrayColor(this),
+                    new SetStrokingDeviceRGBColor(this), new SetNonStrokingDeviceRGBColor(this), new SetStrokingDeviceCMYKColor(this), new SetNonStrokingDeviceCMYKColor(this))) {
+                addOperator(op);
+            }
+        }
+
+        static List<Glyph> collect(PDDocument pdf, int index) throws IOException {
+            GlyphCollector collector = new GlyphCollector();
+            collector.setStartPage(index + 1);
+            collector.setEndPage(index + 1);
+            collector.getText(pdf);
+            return collector.glyphs;
+        }
+
+        @Override
+        protected void processTextPosition(TextPosition text) {
+            var state = getGraphicsState();
+            // Invisible text (the OCR layer of a scan) stays out: the scan in the picture shows it.
+            if (state.getTextState().getRenderingMode() == org.apache.pdfbox.pdmodel.graphics.state.RenderingMode.NEITHER) return;
+            int[] codes = text.getCharacterCodes();
+            if (codes == null || codes.length == 0 || !liftable(text.getFont(), codes[0], text.getTextMatrix())) return;
+            String value = text.getUnicode();
+            if (value == null || value.isEmpty()) return;
+            float x = text.getXDirAdj(), y = text.getYDirAdj();
+            // Fake bold draws a glyph twice, a hair apart: keep one.
+            for (int j = glyphs.size() - 1; j >= Math.max(0, glyphs.size() - 4); j--) {
+                Glyph g = glyphs.get(j);
+                if (g.text().equals(value) && Math.abs(g.x() - x) < 1f && Math.abs(g.y() - y) < 1f) return;
+            }
+            PDFont font = text.getFont();
+            String raw = font.getName() == null ? "" : font.getName();
+            String name = raw.contains("+") ? raw.substring(raw.indexOf('+') + 1) : raw;
+            String lower = name.toLowerCase(Locale.ROOT);
+            var descriptor = font.getFontDescriptor();
+            // Variable-font instances name their weight: ".SFNS-Regular_…_wght2BC0000" is weight 0x2BC = 700.
+            var weight = java.util.regex.Pattern.compile("wght([0-9A-Fa-f]{5,8})").matcher(name);
+            boolean bold = weight.find() ? Long.parseLong(weight.group(1), 16) / 65536 >= 600
+                    : lower.contains("bold") || lower.contains("black") || lower.contains("heavy") || lower.contains("semibold")
+                    || (descriptor != null && (descriptor.isForceBold() || descriptor.getFontWeight() >= 600));
+            boolean italic = lower.contains("italic") || lower.contains("oblique") || (descriptor != null && descriptor.isItalic());
+            int color = 0;
+            try {
+                var paint = state.getTextState().getRenderingMode().isFill() ? state.getNonStrokingColor() : state.getStrokingColor();
+                color = paint.toRGB();
+            } catch (Exception ignored) {
+                // Patterns and unusual color spaces read as black.
+            }
+            // The rendering matrix includes the page transform, which getFontSizeInPt leaves out.
+            float size = Math.abs(text.getTextMatrix().getScalingFactorY());
+            String family = families.computeIfAbsent(raw, key -> family(name, descriptor != null && descriptor.isSerif(), descriptor != null && descriptor.isFixedPitch()));
+            glyphs.add(new Glyph(value, x, x + text.getWidthDirAdj(), y, Math.max(1f, size), family, bold, italic, color));
+        }
+    }
+
+    static Set<String> installedFamilies;
+
+    /**
+     * The font family for slide text: "TimesNewRomanPS-BoldMT" becomes "Times New Roman". Apple's
+     * hidden system fonts (".SFNS…") and fonts this Mac doesn't have map to a close standard family.
+     */
+    static String family(String name, boolean serif, boolean fixed) {
+        if (name.startsWith(".SF") || name.startsWith(".AppleSystemUIFont")) return "Helvetica Neue";
+        if (name.startsWith(".LucidaGrande")) return "Lucida Grande";
+        String base = name.replaceFirst("^\\.", "").split("[-,_]")[0].replaceAll("(PSMT|MT|PS)$", "");
+        base = base.replaceAll("([a-z])([A-Z])", "$1 $2").trim();
+        if (installedFamilies == null) {
+            installedFamilies = new HashSet<>();
+            for (String family : GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames()) installedFamilies.add(family.toLowerCase(Locale.ROOT));
+        }
+        if (!base.isEmpty() && installedFamilies.contains(base.toLowerCase(Locale.ROOT))) return base;
+        String lower = name.toLowerCase(Locale.ROOT);
+        if (fixed || lower.contains("mono") || lower.contains("courier") || lower.contains("code")) return "Menlo";
+        if (serif || lower.contains("serif") && !lower.contains("sans") || lower.contains("times") || lower.contains("roman")) return "Times New Roman";
+        return "Helvetica Neue";
+    }
+
+    /** Glyphs on one baseline, split where a gap wider than a few spaces separates columns. */
+    static List<Line> lines(List<Glyph> glyphs) {
+        List<Glyph> sorted = new ArrayList<>(glyphs);
+        sorted.sort(Comparator.comparingDouble(Glyph::y).thenComparingDouble(Glyph::x));
+        List<List<Glyph>> rows = new ArrayList<>();
+        for (Glyph g : sorted) {
+            List<Glyph> row = rows.isEmpty() ? null : rows.get(rows.size() - 1);
+            if (row != null && Math.abs(row.get(0).y() - g.y()) <= Math.max(1.5f, row.get(0).size() * 0.35f)) row.add(g);
+            else rows.add(new ArrayList<>(List.of(g)));
+        }
+        List<Line> lines = new ArrayList<>();
+        for (List<Glyph> row : rows) {
+            row.sort(Comparator.comparingDouble(Glyph::x));
+            List<Glyph> current = new ArrayList<>();
+            for (Glyph g : row) {
+                // About a letter's width apart: a new column (table cells, tab stops), not a word space.
+                if (!current.isEmpty() && g.x() - current.get(current.size() - 1).right() > g.size() * 0.8f) {
+                    lines.add(new Line(current));
+                    current = new ArrayList<>();
+                }
+                current.add(g);
+            }
+            if (!current.isEmpty()) lines.add(new Line(current));
+        }
+        return lines;
+    }
+
+    /** Lines stacked at the same left edge, size and spacing share one text box, one paragraph each. */
+    static List<List<Line>> blocks(List<Line> lines) {
+        List<List<Line>> blocks = new ArrayList<>();
+        List<Line> sorted = new ArrayList<>(lines);
+        sorted.sort(Comparator.comparingDouble(Line::y).thenComparingDouble(Line::x));
+        for (Line line : sorted) {
+            List<Line> target = null;
+            for (List<Line> block : blocks) {
+                Line last = block.get(block.size() - 1);
+                float gap = line.y() - last.y();
+                if (Math.abs(line.x() - last.x()) < 2f && Math.abs(line.size() - last.size()) < last.size() * 0.15f
+                        && gap > 0 && gap < last.size() * 1.8f) { target = block; break; }
+            }
+            if (target == null) blocks.add(new ArrayList<>(List.of(line))); else target.add(line);
+        }
+        return blocks;
+    }
+
+    static void addTextBox(XSLFSlide slide, List<Line> block, double fit, double left, double top) {
+        float size = block.get(0).size();
+        double x = block.stream().mapToDouble(Line::x).min().orElse(0);
+        double right = block.stream().mapToDouble(Line::right).max().orElse(x + 10);
+        // With exact spacing the first baseline sits about one font size below the box's top.
+        double ascent = size, descent = size * 0.26;
+        double y = block.get(0).y() - ascent, bottom = block.get(block.size() - 1).y() + descent;
+        var box = slide.createTextBox();
+        box.setAnchor(new Rectangle2D.Double(left + x * fit, top + y * fit, (right - x) * fit + size * fit * 0.5, (bottom - y) * fit));
+        box.setInsets(new org.apache.poi.sl.usermodel.Insets2D(0, 0, 0, 0));
+        box.setWordWrap(false);
+        box.setVerticalAlignment(org.apache.poi.sl.usermodel.VerticalAlignment.TOP);
+        box.clearText();
+        for (int l = 0; l < block.size(); l++) {
+            Line line = block.get(l);
+            var paragraph = box.addNewTextParagraph();
+            // Exact line spacing reproduces the PDF's baselines.
+            double pitch = l == 0 ? line.size() * 1.2 : line.y() - block.get(l - 1).y();
+            paragraph.setLineSpacing(-pitch * fit);
+            paragraph.setSpaceBefore(0d);
+            paragraph.setSpaceAfter(0d);
+            Glyph previous = null;
+            List<Glyph> span = new ArrayList<>();
+            StringBuilder text = new StringBuilder();
+            for (Glyph g : line.glyphs()) {
+                boolean space = previous != null && g.x() - previous.right() > g.size() * 0.18f && !previous.text().endsWith(" ") && !g.text().startsWith(" ");
+                if (!span.isEmpty()) {
+                    Glyph style = span.get(0);
+                    if (!g.font().equals(style.font()) || g.bold() != style.bold() || g.italic() != style.italic()
+                            || g.color() != style.color() || Math.abs(g.size() - style.size()) > 0.5f) {
+                        addRun(paragraph, text.toString(), span, fit);
+                        text.setLength(0);
+                        span.clear();
+                    }
+                }
+                if (space) text.append(' ');
+                text.append(g.text());
+                span.add(g);
+                previous = g;
+            }
+            addRun(paragraph, text.toString(), span, fit);
+        }
+    }
+
+    static final java.awt.font.FontRenderContext METRICS = new java.awt.font.FontRenderContext(null, true, true);
+
+    static void addRun(org.apache.poi.xslf.usermodel.XSLFTextParagraph paragraph, String text, List<Glyph> span, double fit) {
+        if (text.isEmpty() || span.isEmpty()) return;
+        Glyph style = span.get(0);
+        var run = paragraph.addNewTextRun();
+        run.setText(text);
+        run.setFontFamily(style.font());
+        // Whole points: Keynote and Quick Look drop the half point (11.5 renders as 11).
+        double size = Math.max(1, Math.round(style.size() * fit));
+        run.setFontSize(size);
+        run.setBold(style.bold());
+        run.setItalic(style.italic());
+        run.setFontColor(new java.awt.Color(style.color()));
+        // The slide font is rarely the PDF's exact font; spacing the letters to the PDF's width keeps the
+        // text over its underlines, strikethroughs and table cells. (PowerPoint applies fractions of a
+        // point; Keynote only whole points.)
+        if (text.length() > 1) {
+            var font = new java.awt.Font(style.font(), (style.bold() ? java.awt.Font.BOLD : 0) | (style.italic() ? java.awt.Font.ITALIC : 0), 1).deriveFont((float) size);
+            double natural = font.getStringBounds(text, METRICS).getWidth();
+            double wanted = (span.get(span.size() - 1).right() - span.get(0).x()) * fit;
+            double spacing = (wanted - natural) / (text.length() - 1);
+            if (Math.abs(spacing) > 0.01 && Math.abs(spacing) < size * 0.25) run.setCharacterSpacing(spacing);
+        }
     }
 
     static float rotatedWidth(PDPage page, PDRectangle box) {

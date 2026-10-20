@@ -141,7 +141,7 @@ enum PDFConverter {
             try text(document, progress: progress).write(to: single, atomically: false, encoding: .utf8)
             return [single]
         case .pptx:
-            return try await OfficeHelper.run("pdf2pptx", source, single, progress: progress)
+            return try await OfficeHelper.run("pdf2pptx", source, single, extra: [options.officeLayout == .preservePages ? "pages" : "editable"], progress: progress)
         case .xlsx:
             return try await OfficeHelper.run("pdf2sheet", source, single, progress: progress)
         case .docx, .pages, .epub, .md:

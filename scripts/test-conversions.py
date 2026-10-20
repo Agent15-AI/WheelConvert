@@ -163,6 +163,24 @@ if not filters or any("batch" in f for f in filters):
     elif sorted(os.listdir(d)) != sorted([os.path.basename(p) for p in paths] + [os.path.basename(o) for o in outs]): err = f"stray files {os.listdir(d)}"
     results.append(("batch", "cancel", "OK" if not err else "FAIL " + err, 0)); print(f"{'OK  ' if not err else 'FAIL'} cancelled parallel batch {err or ''}")
 
+# PDF → PowerPoint keeps text editable (real text boxes) and stores photo-like pages as JPEG.
+if not filters or any("pptx" in f for f in filters):
+    err = None
+    for name, words, picture in [("sample-multi.pdf", ["WheelConvert Test", "Second bullet", "answer"], None), ("sample-images.pdf", [], ".jpeg")]:
+        d = os.path.join(WORK, f"pptx-{name}"); os.makedirs(d)
+        src = os.path.join(d, name); shutil.copy2(os.path.join(FIXTURES, name), src)
+        r = run([APP, "--convert", src, "pptx"])
+        out = next((l[4:] for l in r.stdout.splitlines() if l.startswith("OUT:")), None)
+        if not out: err = f"{name}: {r.stderr.strip()[-200:]}"; break
+        with zipfile.ZipFile(out) as z:
+            slides = " ".join(z.read(n).decode("utf-8") for n in z.namelist() if n.startswith("ppt/slides/slide"))
+            text = " ".join(re.findall(r"<a:t>([^<]*)</a:t>", slides))
+            media = [n for n in z.namelist() if n.startswith("ppt/media/")]
+        missing = [w for w in words if w not in text]
+        if missing: err = f"{name}: text not editable {missing}"; break
+        if picture and not any(m.endswith(picture) for m in media): err = f"{name}: expected {picture} pictures, got {media}"; break
+    results.append(("pdf", "pptx text", "OK" if not err else "FAIL " + err, 0)); print(f"{'OK  ' if not err else 'FAIL'} PDF to PowerPoint text boxes {err or ''}")
+
 # PDF pages saved as images follow the resolution option (72/150/300 DPI).
 if not filters or any("dpi" in f for f in filters):
     widths = {}
