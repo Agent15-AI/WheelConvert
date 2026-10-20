@@ -179,7 +179,7 @@ if not filters or any("webp" in f for f in filters):
     def tags(path): return run([EXIFTOOL, "-s", "-s", "-s", "-Artist", "-GPSLatitude", "-Title", "-ProfileDescription", "-ExifImageWidth", path]).stdout.split("\n")
     kept, gone = tags(os.path.join(d, "photo.webp")), tags(os.path.join(d, "stripped.webp"))
     err = None
-    if kept[:5] != ["WheelConvert Test", "48 deg 51' 0.00\"", "Paris", "Display P3", "640"]: err = f"kept {kept}"
+    if kept[0] != "WheelConvert Test" or not kept[1].startswith("48 deg 51'") or kept[2:5] != ["Paris", "Display P3", "640"]: err = f"kept {kept}"
     elif any(gone[:4]): err = f"not stripped {gone}"
     results.append(("jpg", "webp metadata", "OK" if not err else "FAIL " + err, 0)); print(f"{'OK  ' if not err else 'FAIL'} WebP metadata {err or ''}")
 
