@@ -1,12 +1,15 @@
 import Foundation
 
-/// GitHub-flavored Markdown output. Images are embedded as data URLs so the file stands alone.
+/// GitHub-flavored Markdown output. Images link into a folder beside the .md file.
 struct MarkdownWriter {
     /// Folder, next to the .md file, that the image links point into.
-    var imageFolder = "images"
+    var imageFolder: String
     /// The document's images, named as the text links them; the caller saves them in `imageFolder`.
     private(set) var images: [(name: String, data: Data)] = []
     private var notes: [String] = []
+
+    // Spelled out: Xcode 26's compiler makes the memberwise initializer private because of `notes`.
+    init(imageFolder: String = "images") { self.imageFolder = imageFolder }
 
     mutating func write(_ doc: StructuredDocument) -> String {
         var out = blocks(doc.blocks, indent: "")
