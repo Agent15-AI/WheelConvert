@@ -8,7 +8,8 @@ permissions:
   contents: write
 jobs:
   release:
-    runs-on: macos-15
+    # macOS 15 machines stopped picking up jobs (GitHub moved capacity to macOS 26, its macos-latest).
+    runs-on: macos-26
     timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
@@ -17,7 +18,7 @@ jobs:
       - name: Tools
         run: |
           brew install xcodegen pkg-config openjdk@21
-          sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+          sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | grep -iv beta | sort -V | tail -1)"
       # FFmpeg and its codecs take the longest to build; reuse them until their script changes.
       - name: Restore FFmpeg build
         id: ffmpeg
