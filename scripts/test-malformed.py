@@ -2,6 +2,7 @@ import os, random, shutil, subprocess, sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 APP = os.path.join(ROOT, "build/DD/Build/Products/Debug/WheelConvert.app/Contents/MacOS/WheelConvert")
 FIX = os.path.join(ROOT, "build/fixtures")
+subprocess.run(["zsh", os.path.join(ROOT, "scripts/make-fixtures.sh")], check=True, stdout=subprocess.DEVNULL)
 WORK = os.path.join(ROOT, "build/fuzz")
 shutil.rmtree(WORK, ignore_errors=True); os.makedirs(WORK)
 random.seed(7)

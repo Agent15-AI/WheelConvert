@@ -324,6 +324,66 @@ final class CoreTests: XCTestCase {
         XCTAssertEqual(try decoder.unpack(Array("Hi A!".utf8)), Array("Hi BC!".utf8))
     }
 
+    func testPalmDOCCompressionRoundTrips() {
+        var random = SystemRandomNumberGenerator()
+        let samples: [[UInt8]] = [
+            [], Array("a".utf8), Array("  a b c".utf8),
+            Array(String(repeating: "The quick brown fox jumps over the lazy dog. ", count: 90).utf8.prefix(4096)),
+            Array(String(repeating: "Grüße 日本語 😀 Ελληνικά ", count: 120).utf8.prefix(4096)),
+            (0..<4096).map { _ in UInt8.random(in: 0...255, using: &random) },
+            [UInt8](repeating: 0x01, count: 40) + [UInt8](repeating: 0x80, count: 17) + [0x20, 0x41, 0x20, 0x20, 0x7F, 0x20, 0x00],
+        ]
+        for sample in samples {
+            let packed = MOBIWriter.palmDOC(sample)
+            XCTAssertEqual(MOBIReader.palmDOC(packed), sample, "\(sample.count) bytes")
+        }
+        XCTAssertTrue(MOBIWriter.palmDOC(samples[3]).count < samples[3].count / 3, "repetitive text should compress")
+    }
+
+    func testMOBIBooksReadBack() throws {
+        let width = 40, height = 30
+        let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        context.setFillColor(CGColor(red: 0.2, green: 0.4, blue: 0.9, alpha: 0.5))
+        context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+        var doc = StructuredDocument(title: "Über Bücher", author: "Ada Example", language: "de")
+        let long = String(repeating: "Grüße aus Köln, 日本語, emoji 😀. ", count: 300)
+        var noted = StructuredDocument.Run("Noted")
+        noted.note = "A footnote"
+        doc.blocks = [.image(.init(data: ImageSniffer.png(context.makeImage()!)!, alt: "Cover")),
+                      .heading(level: 1, runs: [.init("Erstes Kapitel")]), .paragraph(.init(runs: [.init(long)])),
+                      .heading(level: 2, runs: [.init("Zweites Kapitel")]), .paragraph(.init(runs: [noted, .init(" and "), .init("a link", link: "#missing")]))]
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".mobi")
+        try MOBIWriter.write(doc).write(to: url)
+        defer { try? FileManager.default.removeItem(at: url) }
+        let read = try MOBIReader.read(url)
+        XCTAssertEqual(read.title, "Über Bücher")
+        XCTAssertEqual(read.author, "Ada Example")
+        XCTAssertEqual(read.language, "de")
+        let text = read.blocks.map(\.plainText).joined(separator: "\n")
+        XCTAssertTrue(text.contains(long.trimmingCharacters(in: .whitespaces)), "multibyte text across records")
+        XCTAssertTrue(text.contains("Zweites Kapitel") && text.contains("A footnote") && text.contains("a link"))
+        guard case .image(let cover) = read.blocks.first else { return XCTFail("cover first") }
+        XCTAssertEqual(ImageSniffer.mime(cover.data), "image/jpeg")
+        // Every text record holds at most 4096 bytes once its trailing entries are removed.
+        let database = try MOBIReader.PalmDatabase([UInt8](try Data(contentsOf: url)))
+        let book = try MOBIReader.Book(database, base: 0)
+        for index in 1...book.textRecords {
+            var record = database.record(index)
+            record.removeLast(MOBIReader.trailingSize(record, flags: book.extraFlags))
+            XCTAssertTrue(MOBIReader.palmDOC(record).count <= 4096)
+        }
+        XCTAssertTrue(book.cover() != nil)
+        XCTAssertTrue(ConversionMatrix.outputs(for: .docx).contains(.mobi))
+        XCTAssertTrue(ConversionMatrix.outputs(for: .pdf).contains(.mobi))
+        XCTAssertFalse(FileFormat.mobi.isInputOnly)
+    }
+
+    func testHTMLWithoutCharsetKeepsItsText() {
+        let blocks = HTMLReader { _ in nil }.parse(Data("<html><body><p>Grüße 日本 😀<br></p></body></html>".utf8))
+        XCTAssertEqual(blocks.map(\.plainText).joined().trimmingCharacters(in: .whitespacesAndNewlines), "Grüße 日本 😀")
+    }
+
     func testKindleBooksWithDRMAreRefusedPlainly() throws {
         var record0 = [UInt8](repeating: 0, count: 0x110)
         record0[0] = 0; record0[1] = 2        // PalmDOC compression

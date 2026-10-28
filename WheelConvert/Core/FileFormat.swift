@@ -63,7 +63,6 @@ enum FileFormat: String, CaseIterable, Codable, Identifiable {
         case .sevenZip: "7Z"
         case .pages: "Pages"
         case .raw: String(localized: "Camera RAW")
-        case .mobi: String(localized: "Kindle Book")
         case .kindle: "Kindle"
         default: rawValue.uppercased()
         }
@@ -163,7 +162,7 @@ enum FileFormat: String, CaseIterable, Codable, Identifiable {
     var isLosslessAudio: Bool { [.wav, .flac, .aiff].contains(self) }
 
     /// Formats that only appear as conversion sources.
-    var isInputOnly: Bool { [.svg, .raw, .wma, .rtf, .rtfd, .textClipping, .mobi, .ppt, .xls, .rar].contains(self) }
+    var isInputOnly: Bool { [.svg, .raw, .wma, .rtf, .rtfd, .textClipping, .ppt, .xls, .rar].contains(self) }
 
     /// Formats that only appear as conversion targets.
     var isOutputOnly: Bool { self == .html || self == .kindle }

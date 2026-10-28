@@ -48,7 +48,10 @@ enum MediaTools {
     static func audioEncoder(_ format: FileFormat, info: MediaInfo, bitrate: Int? = nil) -> [String] {
         let rate = bitrate ?? max(192, min(320, info.audioBitRate / 1000))
         switch format {
-        case .mp3: return ["-c:a", "libmp3lame", "-b:a", "\(rate)k"]
+        case .mp3:
+            // LAME rounds to the nearest MP3 bitrate, which can be above a size target; round down first.
+            let standard = [32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320].last { $0 <= rate } ?? rate
+            return ["-c:a", "libmp3lame", "-b:a", "\(standard)k"]
         case .m4a: return ["-c:a", "aac_at", "-b:a", "\(min(rate, 320))k"]
         case .ogg: return ["-c:a", "libvorbis", "-b:a", "\(min(rate, 320))k"]
         case .opus: return ["-c:a", "libopus", "-b:a", "\(min(rate, 256))k", "-ar", "48000"]

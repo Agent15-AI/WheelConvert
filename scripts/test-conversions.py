@@ -8,6 +8,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 APP = os.path.join(ROOT, "build/DD/Build/Products/Debug/WheelConvert.app/Contents/MacOS/WheelConvert")
 FFPROBE = os.path.join(ROOT, "Vendor/build/bin/ffprobe")
 FIXTURES = os.path.join(ROOT, "build/fixtures")
+subprocess.run(["zsh", os.path.join(ROOT, "scripts/make-fixtures.sh")], check=True, stdout=subprocess.DEVNULL)
 WORK = os.path.join(ROOT, "build/conversion-test")
 filters = sys.argv[1:]
 # Image-only PDFs have no text for these targets; a clear error is the right result.
@@ -43,6 +44,58 @@ def markdown_error(folder):
         if validate(os.path.join(folder, urllib.parse.unquote(link)), os.path.splitext(link)[1][1:].replace("jpeg", "jpg")): return f"bad image {link}"
     return None
 
+def palmdoc(data):
+    out = bytearray(); i = 0
+    while i < len(data):
+        c = data[i]; i += 1
+        if 1 <= c <= 8: out += data[i:i + c]; i += c
+        elif c < 0x80: out.append(c)
+        elif c >= 0xC0: out += b" " + bytes([c ^ 0x80])
+        else:
+            code = c << 8 | data[i]; i += 1
+            for _ in range((code & 7) + 3): out.append(out[-((code >> 3) & 0x7FF)])
+    return bytes(out)
+
+def read_mobi(path):
+    """A MOBI book parsed independently of WheelConvert's reader: (html, exth, image records)."""
+    b = open(path, "rb").read()
+    if b[60:68] != b"BOOKMOBI": raise ValueError("not a MOBI book")
+    n = int.from_bytes(b[76:78], "big")
+    offsets = [int.from_bytes(b[78 + 8 * i:82 + 8 * i], "big") for i in range(n)] + [len(b)]
+    record = lambda i: b[offsets[i]:offsets[i + 1]]
+    r0 = record(0)
+    length, count = int.from_bytes(r0[4:8], "big"), int.from_bytes(r0[8:10], "big")
+    if r0[16:20] != b"MOBI" or r0[0:2] != b"\0\x02" or r0[10:12] != b"\x10\0": raise ValueError("unexpected header")
+    flags = int.from_bytes(r0[242:244], "big")
+    text = bytearray()
+    for i in range(1, count + 1):
+        data = record(i)
+        if flags & 1: data = data[:-(data[-1] & 3) - 1]
+        part = palmdoc(data)
+        if len(part) > 4096: raise ValueError(f"text record {i} holds {len(part)} bytes")
+        text += part
+    if len(text) != length: raise ValueError(f"text is {len(text)} bytes, header says {length}")
+    exth, start = {}, 16 + int.from_bytes(r0[20:24], "big")
+    if r0[start:start + 4] == b"EXTH":
+        o = start + 12
+        for _ in range(int.from_bytes(r0[start + 8:start + 12], "big")):
+            kind, size = int.from_bytes(r0[o:o + 4], "big"), int.from_bytes(r0[o + 4:o + 8], "big")
+            exth[kind] = r0[o + 8:o + size]; o += size
+    first, images = int.from_bytes(r0[108:112], "big"), []
+    if first != 0xFFFFFFFF:
+        while first < n and record(first)[:4] not in (b"FLIS", b"FCIS"): images.append(record(first)); first += 1
+    return text.decode("utf-8"), exth, images
+
+def mobi_error(path):
+    try: html, exth, images = read_mobi(path)
+    except (ValueError, UnicodeDecodeError, IndexError) as e: return f"MOBI: {e}"
+    raw = html.encode()
+    for pos in re.findall(r"filepos=(\d{10})", html):
+        if raw[int(pos):int(pos) + 1] != b"<": return f"filepos {pos} doesn't point at a tag"
+    if any(not i.startswith(b"\xff\xd8") or len(i) > 127 * 1024 for i in images): return "a picture isn't a JPEG under 127 KB"
+    if html.count("recindex=") and not images: return "pictures referenced but missing"
+    return None if 503 in exth and "<body>" in html else "no title or body"
+
 def validate(path, fmt):
     if fmt == "md" and os.path.isdir(path): return markdown_error(path)
     if os.path.isdir(path):
@@ -65,6 +118,8 @@ def validate(path, fmt):
         return None
     if fmt == "pdf":
         return pdf_error(path)
+    if fmt == "mobi":
+        return mobi_error(path)
     if fmt == "kindle": fmt = "epub"
     if fmt in ("docx", "pptx", "xlsx", "ods", "epub", "zip", "pages"):
         try:
@@ -243,7 +298,23 @@ if (not filters or any("kindle" in f or "mobi" in f for f in filters)) and os.pa
             text = " ".join(z.read(n).decode("utf-8") for n in names if n.endswith(".xhtml"))
         if 'name="cover"' not in opf or "EPUB/toc.ncx" not in names: err = "Kindle EPUB without cover or NCX"
         elif "Mock Turtle" not in text or "Lewis Carroll" not in opf: err = "book text or author missing"
-    results.append(("mobi", "kindle checks", "OK" if not err else "FAIL " + err, 0)); print(f"{'OK  ' if not err else 'FAIL'} Kindle DRM refusal and Send to Kindle EPUB {err or ''}")
+    if not err:
+        # A whole book to MOBI: its text, author, cover and contents page, and back again with its quotes intact.
+        shutil.copy2(out, os.path.join(d, "alice.epub"))
+        r = run([APP, "--convert", os.path.join(d, "alice.epub"), "mobi"])
+        mobi = next((l[4:] for l in r.stdout.splitlines() if l.startswith("OUT:")), None)
+        err = mobi_error(mobi) if mobi else f"no MOBI: {r.stderr.strip()[-160:]}"
+        if not err:
+            html, exth, images = read_mobi(mobi)
+            if "Mock Turtle" not in html or exth.get(100) != b"Lewis Carroll": err = "MOBI text or author missing"
+            elif 201 not in exth or not images: err = "MOBI without cover"
+            elif 'type="toc"' not in html: err = "MOBI without contents page"
+        if not err:
+            r = run([APP, "--convert", mobi, "txt"])
+            back = next((l[4:] for l in r.stdout.splitlines() if l.startswith("OUT:")), None)
+            words = open(back, encoding="utf-8").read() if back else ""
+            if "Mock Turtle" not in words or "\u201c" not in words: err = "MOBI didn't read back with its curly quotes"
+    results.append(("mobi", "kindle checks", "OK" if not err else "FAIL " + err, 0)); print(f"{'OK  ' if not err else 'FAIL'} Kindle DRM refusal, Send to Kindle EPUB and MOBI {err or ''}")
 
 # PDF → PowerPoint keeps text editable (real text boxes) and stores photo-like pages as JPEG.
 if not filters or any("pptx" in f for f in filters):

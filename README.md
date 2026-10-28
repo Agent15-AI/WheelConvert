@@ -10,6 +10,8 @@ tool, or run a file action. Everything runs locally.
 
 Kindle books (MOBI and AZW3, DRM-free only) convert like any document, and the **Kindle** target makes an EPUB
 tuned for Send to Kindle: pictures resized to Kindle screens, a cover, and a table of contents Kindle can read.
+Documents and PDFs also convert to **MOBI**, the classic Kindle format, for copying onto a Kindle over USB or
+reading in other e-book apps (Amazon's Send to Kindle no longer accepts MOBI files, so use the Kindle target there).
 
 Presets are saved recipes, such as "Instagram 1080 px JPG" or "Email-size MP4 (under 25 MB)": a target format
 with its options, or a tool with its settings. Matching presets appear as extra petals on the Convert wheel.
@@ -115,6 +117,9 @@ editor. `scripts/test-tools.py` fails while any string lacks a translation or ha
 To see the app in another language: `WheelConvert -AppleLanguages '(de)' --snapshot settings out.png`.
 
 ## Testing
+
+The suites make their sample files first with `scripts/make-fixtures.sh` (in `build/fixtures`; it needs
+`scripts/build.sh` and, for the Office samples, `brew install openjdk@21`).
 
 ```bash
 python3 -I scripts/test-conversions.py   # every conversion in the matrix, outputs validated (fetches two CC0 raw samples once)

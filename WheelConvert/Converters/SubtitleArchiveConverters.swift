@@ -135,8 +135,9 @@ enum ArchiveConverter {
             guard result.status == 0 else { try? FileManager.default.removeItem(at: destination); throw failure(result.stderr) }
             return
         }
-        // Re-pack straight from the source archive without extracting to disk.
-        let result = try await ProcessRunner.run(Bundled.bsdtar, args + ["@" + source.path])
+        // Re-pack straight from the source archive without extracting to disk. Mac metadata copies ("._name",
+        // and Finder's __MACOSX folder) stay behind: macOS bsdtar writes a truncated tar when re-packing them.
+        let result = try await ProcessRunner.run(Bundled.bsdtar, args + ["--exclude", "._*", "--exclude", "__MACOSX", "@" + source.path])
         guard result.status == 0 else { try? FileManager.default.removeItem(at: destination); throw failure(result.stderr) }
     }
 

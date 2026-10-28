@@ -33,8 +33,12 @@ struct HTMLReader {
     func parse(_ data: Data) -> [StructuredDocument.Block] {
         let head = String(decoding: data.prefix(2048), as: UTF8.self)
         guard head.range(of: "<!ENTITY", options: .caseInsensitive) == nil else { return [] }
+        // Tidy reads HTML without a declared charset as Latin-1 and drops every other character
+        // (MOBI books rarely declare one); the bytes here are UTF-8 unless the page says otherwise.
+        let tidyInput = head.range(of: "charset", options: .caseInsensitive) == nil
+            ? Data(#"<meta http-equiv="Content-Type" content="text/html; charset=utf-8">"#.utf8) + data : data
         let document = (try? XMLDocument(data: data, options: [.nodeLoadExternalEntitiesNever]))
-            ?? (try? XMLDocument(data: data, options: [.documentTidyHTML, .nodeLoadExternalEntitiesNever]))
+            ?? (try? XMLDocument(data: tidyInput, options: [.documentTidyHTML, .nodeLoadExternalEntitiesNever]))
         guard let root = document?.rootElement() else { return [] }
         let body = Self.firstElement(root, named: "body") ?? root
         var collector = Collector(loader: imageLoader)

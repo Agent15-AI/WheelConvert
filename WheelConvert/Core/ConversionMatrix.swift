@@ -16,7 +16,7 @@ enum ConversionMatrix {
     }()
     static let videoTargets: [FileFormat] = [.mp4, .mov, .mkv, .webm, .avi, .wmv, .gif, .mp3]
     static let audioTargets: [FileFormat] = [.mp3, .m4a, .wav, .flac, .ogg, .opus, .aiff]
-    static let documentTargets: [FileFormat] = [.pdf, .docx, .pages, .md, .txt, .epub, .kindle, .html]
+    static let documentTargets: [FileFormat] = [.pdf, .docx, .pages, .md, .txt, .epub, .kindle, .mobi, .html]
     static let spreadsheetTargets: [FileFormat] = [.xlsx, .ods, .csv, .tsv, .pdf]
     static let archiveTargets: [FileFormat] = [.zip, .tar, .gzip, .sevenZip]
 
@@ -26,7 +26,7 @@ enum ConversionMatrix {
         case .images: targets = imageTargets
         case .video: targets = input == .gif ? [.mp4, .mov, .mkv, .webm, .avi, .wmv] : videoTargets
         case .audio: targets = audioTargets
-        case .pdf: targets = [.docx, .pages, .pptx, .xlsx, .jpg, .png, .epub, .kindle, .txt, .md]
+        case .pdf: targets = [.docx, .pages, .pptx, .xlsx, .jpg, .png, .epub, .kindle, .mobi, .txt, .md]
         case .documents: targets = input.isOutputOnly ? [] : documentTargets
         case .slides: targets = [.pdf, .jpg, .png]
         case .spreadsheets: targets = spreadsheetTargets

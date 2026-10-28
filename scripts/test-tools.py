@@ -5,6 +5,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 APP = os.path.join(ROOT, "build/DD/Build/Products/Debug/WheelConvert.app/Contents/MacOS/WheelConvert")
 FFPROBE = os.path.join(ROOT, "Vendor/build/bin/ffprobe")
 FIX = os.path.join(ROOT, "build/fixtures")
+subprocess.run(["zsh", os.path.join(ROOT, "scripts/make-fixtures.sh")], check=True, stdout=subprocess.DEVNULL)
 WORK = os.path.join(ROOT, "build/tool-test")
 only = sys.argv[1:]
 

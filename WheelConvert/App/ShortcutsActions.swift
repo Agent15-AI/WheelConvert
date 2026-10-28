@@ -173,7 +173,7 @@ enum ShortcutFormat: String, AppEnum {
     case jpg, png, webp, heic, tiff, avif, bmp, pdf
     case mp4, mov, mkv, webm, avi, wmv, gif
     case mp3, m4a, wav, flac, ogg, opus, aiff
-    case docx, pages, md, txt, epub, kindle, html
+    case docx, pages, md, txt, epub, kindle, mobi, html
     case pptx, xlsx, ods, csv, tsv
     case srt, vtt
     case zip, tar, gzip, sevenZip = "7z"
@@ -183,7 +183,7 @@ enum ShortcutFormat: String, AppEnum {
         .jpg: "JPG", .png: "PNG", .webp: "WebP", .heic: "HEIC", .tiff: "TIFF", .avif: "AVIF", .bmp: "BMP", .pdf: "PDF",
         .mp4: "MP4", .mov: "MOV", .mkv: "MKV", .webm: "WebM", .avi: "AVI", .wmv: "WMV", .gif: "GIF",
         .mp3: "MP3", .m4a: "M4A", .wav: "WAV", .flac: "FLAC", .ogg: "OGG", .opus: "Opus", .aiff: "AIFF",
-        .docx: "Word (DOCX)", .pages: "Pages", .md: "Markdown", .txt: "Plain Text", .epub: "EPUB", .kindle: "Kindle (EPUB for Send to Kindle)", .html: "HTML",
+        .docx: "Word (DOCX)", .pages: "Pages", .md: "Markdown", .txt: "Plain Text", .epub: "EPUB", .kindle: "Kindle (EPUB for Send to Kindle)", .mobi: "MOBI", .html: "HTML",
         .pptx: "PowerPoint (PPTX)", .xlsx: "Excel (XLSX)", .ods: "ODS", .csv: "CSV", .tsv: "TSV",
         .srt: "SRT", .vtt: "VTT",
         .zip: "ZIP", .tar: "TAR", .gzip: "GZIP", .sevenZip: "7-Zip",
