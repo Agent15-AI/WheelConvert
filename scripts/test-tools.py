@@ -439,6 +439,75 @@ for path, data in pristine.items():
     if open(path, "rb").read() != data: failures.append(("smart originals untouched", path))
 os.chmod(readonly, 0o755)
 
+# Custom petals through --custom <petal.json> (the app itself only runs petals made in Settings). Items must reach the
+# script as data: hostile names stay names, nothing from them is executed, and the environment carries no secrets.
+CUSTOM = os.path.join(WORK, "custom"); os.makedirs(CUSTOM, exist_ok=True)
+CRES = os.path.join(CUSTOM, "results"); os.makedirs(CRES, exist_ok=True)
+hostile = ["$(touch pwned).txt", "-rf.txt", "it's \"q\".txt", "new\nline.txt", "`touch pwned2`.txt", "a;touch pwned3.txt", "naïve 日本 🚀.txt"]
+for name in hostile:
+    with open(os.path.join(CUSTOM, name), "w") as f: f.write(name)
+def petal_file(name, **fields):
+    path = os.path.join(CUSTOM, name + ".json")
+    with open(path, "w") as f: json.dump({"name": name, **fields}, f)
+    return path
+def custom(petal, *inputs, env=None):
+    t = time.time()
+    r = subprocess.run([APP, "--custom", petal, *inputs], capture_output=True, text=True, timeout=120,
+                       env={**os.environ, "WHEELCONVERT_RESULTS": CRES, "SECRET_TOKEN": "hunter2", **(env or {})})
+    return r, time.time() - t
+def out_text(r):
+    import unicodedata  # macOS may hand paths over decomposed (NFD)
+    return unicodedata.normalize("NFC", open(outs_of(r.stdout.splitlines())[0], encoding="utf-8").read()) if outs_of(r.stdout.splitlines()) else None
+emoji_text = sfile("custom-stdin.txt", "Grüße 👋 $(touch pwned4) `id` \"q\" 'x'\nsecond line")
+
+CUSTOM_CASES = [
+    ("custom args hostile names", lambda: custom(petal_file("Args", kind="shell", script='for f in "$@"; do printf "[%s]\\n" "$f"; done'), *[os.path.join(CUSTOM, n) for n in hostile]),
+     lambda r: None if out_text(r) == "".join(f"[{os.path.join(CUSTOM, n)}]\n" for n in hostile) else f"{out_text(r)!r} {r.stderr[-200:]}"),
+    ("custom stdin text exact", lambda: custom(petal_file("Echo", kind="shell", acceptsFiles=False, acceptsText=True, script="cat"), "text:" + emoji_text),
+     lambda r: None if out_text(r) == open(emoji_text, encoding="utf-8").read() else f"{out_text(r)!r}"),
+    ("custom link on stdin", lambda: custom(petal_file("Link", kind="shell", acceptsFiles=False, acceptsLinks=True, script="cat"), "link:https://example.com/a?b=1&c=2"),
+     lambda r: None if out_text(r) == "https://example.com/a?b=1&c=2" else f"{out_text(r)!r}"),
+    ("custom environment clean", lambda: custom(petal_file("Env", kind="shell", script="env | cut -d= -f1 | sort"), os.path.join(CUSTOM, hostile[1])),
+     lambda r: (lambda keys: None if keys and "HOME" in keys and "PATH" in keys and not {"SECRET_TOKEN", "WHEELCONVERT_RESULTS"} & set(keys) else f"{keys}")((out_text(r) or "").split())),
+    ("custom timeout", lambda: custom(petal_file("Slow", kind="shell", timeoutSeconds=2, script="sleep 30; echo late"), os.path.join(CUSTOM, hostile[1])),
+     lambda r: None if "longer than 2 seconds" in r.stdout and not outs_of(r.stdout.splitlines()) else f"{r.stdout} {r.stderr}"),
+    ("custom output capped", lambda: custom(petal_file("Big", kind="shell", script="head -c 25000000 /dev/zero | tr '\\0' 'x'"), os.path.join(CUSTOM, hostile[1])),
+     lambda r: None if outs_of(r.stdout.splitlines()) and os.path.getsize(outs_of(r.stdout.splitlines())[0]) == 10_000_000 else f"{r.stdout[-200:]}"),
+    ("custom failing script", lambda: custom(petal_file("Fails", kind="shell", script="echo oops >&2; exit 3"), os.path.join(CUSTOM, hostile[1])),
+     lambda r: None if "exit code 3" in r.stdout and "oops" in r.stdout and not outs_of(r.stdout.splitlines()) else f"{r.stdout}"),
+    ("custom silent script", lambda: custom(petal_file("Quiet", kind="shell", script="true"), os.path.join(CUSTOM, hostile[1])),
+     lambda r: None if r.returncode == 0 and "OUT:" not in r.stdout and "FAIL:" not in r.stdout else f"{r.stdout} {r.stderr}"),
+    ("custom binary result type", lambda: custom(petal_file("Copy", kind="shell", acceptsPictures=True, acceptsFiles=False, script='cat "$1"'), sfix("smart-palette.png")),
+     lambda r: None if outs_of(r.stdout.splitlines()) and outs_of(r.stdout.splitlines())[0].endswith(".png") else f"{r.stdout}"),
+    ("custom wrong content refused", lambda: custom(petal_file("PDFs", kind="shell", extensions="pdf", script="echo no"), "text:" + emoji_text),
+     lambda r: None if r.returncode == 1 and "isn’t offered" in r.stderr else f"{r.returncode} {r.stderr}"),
+    ("custom missing shortcut", lambda: custom(petal_file("Shortcut", kind="shortcut", shortcutName="-WheelConvert test: no such shortcut"), os.path.join(CUSTOM, hostile[1])),
+     lambda r: None if "FAIL:" in r.stdout and "didn’t finish" in r.stdout else f"{r.stdout} {r.stderr}"),
+    ("custom url encodes item", lambda: custom(petal_file("URL", kind="urlScheme", acceptsFiles=False, acceptsText=True, urlTemplate="wheelconverttest://add?title={text}&x=1"), "text:" + emoji_text),
+     lambda r: None if [l for l in r.stdout.splitlines() if l.startswith("OPEN:")] == ["OPEN:wheelconverttest://add?title=Gr%C3%BC%C3%9Fe%20%F0%9F%91%8B%20%24%28touch%20pwned4%29%20%60id%60%20%22q%22%20%27x%27%0Asecond%20line&x=1"] else f"{r.stdout}"),
+]
+for name, run, check in CUSTOM_CASES:
+    if only and not any(o in name for o in only): continue
+    r, took = run()
+    err = f"exit {r.returncode}" if r.returncode not in (0, 1) else check(r)
+    if name == "custom timeout" and took > 10: err = (err or "") + f" took {took:.1f}s"
+    for folder in [CUSTOM, CRES, SMART]:
+        if [f for f in os.listdir(folder) if f.startswith(".wheelconvert") or f.startswith("pwned")]: err = (err or "") + " leftover or injected file"
+    print(f"{'OK  ' if not err else 'FAIL'} {name:28} {err or ''}")
+    if err: failures.append((name, err))
+
+# A custom petal from Settings shows on the smart wheel only for content it takes (read from the argument domain,
+# so nothing is written to the person's settings).
+if not only or any("custom" in o for o in only):
+    import base64
+    defined = [{"id": "6C3F1D0E-1A51-4C6B-9C1B-0D2F5B6A0F01", "name": "PDF tool", "kind": "shell", "script": "true", "extensions": "pdf"}]
+    domain = ["-customPetals", "<data>" + base64.b64encode(json.dumps(defined).encode()).decode() + "</data>"]
+    def citems(path): return subprocess.run([APP, "--smart-items", path, *domain], capture_output=True, text=True).stdout.split()
+    pdf_items, png_items = citems(os.path.join(FIX, "sample.pdf")), citems(os.path.join(FIX, "sample.png"))
+    ok = pdf_items[-1:] == ["custom.6C3F1D0E-1A51-4C6B-9C1B-0D2F5B6A0F01"] and not any(i.startswith("custom.") for i in png_items) and len(png_items) == 12
+    print(f"{'OK  ' if ok else 'FAIL'} {'custom petal on the wheel':28} {'' if ok else (pdf_items, png_items)}")
+    if not ok: failures.append(("custom petal on the wheel", (pdf_items, png_items)))
+
 # Localization: every string is translated (or marked as not needing it) with the same placeholders,
 # and the app answers in the language it's asked for.
 if not only or any("locali" in o for o in only):

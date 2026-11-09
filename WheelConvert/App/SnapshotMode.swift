@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 /// `WheelConvert --snapshot <what> <out.png> [files…]` renders UI offscreen for visual checks.
-/// what: wheel-convert | wheel-tools | wheel-actions | wheel-smart (files, text:<file>, html:<file> or link:<address>) | settings[:conversion|compression|presets|watch|formats|about] | welcome | tool:<ToolKind> | progress
+/// what: wheel-convert | wheel-tools | wheel-actions | wheel-smart (files, text:<file>, html:<file> or link:<address>) | settings[:conversion|compression|presets|custom|watch|formats|about] | welcome | tool:<ToolKind> | progress
 @MainActor
 enum SnapshotMode {
     static func run(_ args: [String]) async throws {
@@ -31,6 +31,7 @@ enum SnapshotMode {
             case "formats": view = NSHostingView(rootView: FormatCompatibility())
             case "presets": view = NSHostingView(rootView: PresetSettings())
             case "watch": view = NSHostingView(rootView: WatchFolderSettings())
+            case "custom": view = NSHostingView(rootView: CustomPetalSettings())
             default: view = NSHostingView(rootView: AboutSettings())
             }
         } else if what == "welcome" {

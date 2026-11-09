@@ -94,8 +94,10 @@ enum SmartAction: String, CaseIterable, Codable, Identifiable {
         }
     }
 
-    /// At most this many petals; the ring grows past 8 the way the other wheels do.
+    /// At most this many petals; the ring grows past 8 the way the other wheels do. Custom petals that fit
+    /// come last and take room from the built-in ones, at most `customLimit` of them, like presets on the Convert wheel.
     static let petalLimit = 12
+    static let customLimit = 6
 
     /// Petals that work for this content on this Mac, in wheel order. Cheap: no file is read.
     static func petals(for content: DragContent) -> [WheelItem.Action] {
@@ -124,7 +126,8 @@ enum SmartAction: String, CaseIterable, Codable, Identifiable {
             if OnDevice.canSummarize(text) { petals.append(.smart(.summarize)) }
             petals += [.smart(.speak), .smart(.saveText)]
         }
-        return Array(petals.prefix(petalLimit))
+        let custom = AppSettings.shared.customPetals.filter { $0.accepts(content) }.prefix(customLimit).map(WheelItem.Action.custom)
+        return Array(petals.prefix(petalLimit - custom.count)) + custom
     }
 
     private static func imagePetals(single: Bool) -> [WheelItem.Action] {

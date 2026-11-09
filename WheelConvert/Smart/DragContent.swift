@@ -86,8 +86,10 @@ enum DragContent: Equatable {
         return .files([try Self.savingImage(from: pasteboard, name: name)])
     }
 
-    /// Developer modes and tests: file paths, `text:<file with UTF-8 text>`, `html:<file>` or `link:<address>`.
-    static func arguments(_ args: [String]) throws -> DragContent {
+    /// Developer modes and tests: file paths, `text:<file with UTF-8 text>`, `html:<file>` or `link:<address>`,
+    /// up to the first `-option` (such as a `-key value` pair for the settings).
+    static func arguments(_ all: [String]) throws -> DragContent {
+        let args = Array(all.prefix { !$0.hasPrefix("-") })
         if let first = args.first, args.count == 1 {
             if first.hasPrefix("link:") {
                 guard let link = webLink(String(first.dropFirst(5))) else { throw WheelError("Not a web link.") }

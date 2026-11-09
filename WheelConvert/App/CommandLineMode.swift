@@ -75,6 +75,15 @@ enum CommandLineMode {
                     await SmartRunner.perform(action, content: content, argument: parts.count > 1 ? parts[1] : nil)?.value
                     exit(0)
                 }
+                if let i = args.firstIndex(of: "--custom"), i + 2 < args.count {
+                    // --custom <petal.json> <input>: runs a petal defined in a file the developer passes here, without
+                    // the approval dialog (there is no UI). The app itself only runs petals made in Settings.
+                    let petal = try JSONDecoder().decode(CustomPetal.self, from: Data(contentsOf: URL(fileURLWithPath: args[i + 1])), defaults: CustomPetal())
+                    let content = try DragContent.arguments(Array(args[(i + 2)...]))
+                    guard petal.accepts(content) else { throw WheelError("This action isn’t offered for that content.") }
+                    await CustomRunner.run(petal, content: content)?.value
+                    exit(0)
+                }
                 if let i = args.firstIndex(of: "--outputs"), i + 1 < args.count {
                     let url = URL(fileURLWithPath: args[i + 1])
                     let formats = FileFormat.detect(url).map { ConversionMatrix.outputs(for: $0) } ?? []

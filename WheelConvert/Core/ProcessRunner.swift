@@ -36,6 +36,9 @@ enum ProcessRunner {
         _ executable: URL,
         _ arguments: [String],
         environment: [String: String]? = nil,
+        replacingEnvironment: Bool = false,
+        input: Data? = nil,
+        stdoutLimit: Int? = nil,
         currentDirectory: URL? = nil,
         onStdoutLine: ((String) -> Void)? = nil,
         onStderrLine: ((String) -> Void)? = nil
@@ -44,14 +47,15 @@ enum ProcessRunner {
         process.executableURL = executable
         process.arguments = arguments
         if let environment {
-            process.environment = ProcessInfo.processInfo.environment.merging(environment) { $1 }
+            process.environment = replacingEnvironment ? environment : ProcessInfo.processInfo.environment.merging(environment) { $1 }
         }
         if let currentDirectory { process.currentDirectoryURL = currentDirectory }
         let outPipe = Pipe(), errPipe = Pipe()
         process.standardOutput = outPipe
         process.standardError = errPipe
-        process.standardInput = FileHandle.nullDevice
-        let collector = OutputCollector(onStdoutLine: onStdoutLine, onStderrLine: onStderrLine)
+        let inPipe = input.map { _ in Pipe() }
+        process.standardInput = inPipe ?? FileHandle.nullDevice
+        let collector = OutputCollector(onStdoutLine: onStdoutLine, onStderrLine: onStderrLine, stdoutLimit: stdoutLimit)
 
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<ProcessOutput, Error>) in
@@ -74,6 +78,15 @@ enum ProcessRunner {
                     return
                 }
                 collector.process = process
+                if let inPipe, let input {
+                    // A helper that exits without reading its input must not take the app down with SIGPIPE.
+                    let writer = inPipe.fileHandleForWriting
+                    _ = fcntl(writer.fileDescriptor, F_SETNOSIGPIPE, 1)
+                    DispatchQueue.global(qos: .utility).async {
+                        try? writer.write(contentsOf: input)
+                        try? writer.close()
+                    }
+                }
                 drain(outPipe.fileHandleForReading, collector.appendStdout)
                 drain(errPipe.fileHandleForReading, collector.appendStderr)
                 done.notify(queue: .global(qos: .utility)) {
@@ -99,6 +112,8 @@ private final class OutputCollector: @unchecked Sendable {
     private var outLine = Data(), errLine = Data()
     private let onStdoutLine: ((String) -> Void)?
     private let onStderrLine: ((String) -> Void)?
+    /// Bytes of standard output kept; the rest is read and dropped so the helper never blocks.
+    private let stdoutLimit: Int
     var process: Process? {
         get { lock.withLock { _process } }
         set { lock.withLock { _process = newValue }; if cancelled { cancel() } }
@@ -106,9 +121,10 @@ private final class OutputCollector: @unchecked Sendable {
     private var _process: Process?
     private(set) var cancelled = false
 
-    init(onStdoutLine: ((String) -> Void)?, onStderrLine: ((String) -> Void)?) {
+    init(onStdoutLine: ((String) -> Void)?, onStderrLine: ((String) -> Void)?, stdoutLimit: Int?) {
         self.onStdoutLine = onStdoutLine
         self.onStderrLine = onStderrLine
+        self.stdoutLimit = stdoutLimit ?? .max
     }
 
     var stderrText: String { lock.withLock { String(decoding: stderrData, as: UTF8.self) } }
@@ -116,8 +132,10 @@ private final class OutputCollector: @unchecked Sendable {
     func appendStdout(_ data: Data) {
         guard !data.isEmpty else { return }
         let lines: [String] = lock.withLock {
-            stdout.append(data)
-            return split(&outLine, data)
+            let room = max(0, stdoutLimit - stdout.count)
+            stdout.append(room >= data.count ? data : data.prefix(room))
+            // Lines are only needed for the callback; without one, unbroken binary output must not pile up here.
+            return onStdoutLine == nil ? [] : split(&outLine, data)
         }
         lines.forEach { onStdoutLine?($0) }
     }

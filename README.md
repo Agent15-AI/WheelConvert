@@ -32,6 +32,24 @@ Limits: pictures that apps offer only as a promised file (the Photos app, for in
 to Finder first. Saving a web page from a link isn't offered, because it would need to download the page.
 How each content type was confirmed to be detectable is in [docs/WHEEL-OF-ANYTHING-DECISIONS.md](docs/WHEEL-OF-ANYTHING-DECISIONS.md).
 
+### Custom petals
+
+Settings → Custom adds your own petals to the smart wheel: a name, an SF Symbol or emoji, what they work with
+(pictures, text, links, files — optionally only some extensions) and what they do:
+
+- **Run a Shortcut** by name, with the item as its input (text and links arrive as a text file);
+- **Run a shell script** (zsh): files arrive as `"$1"`, `"$2"`… (`"$@"` for all), text and links on standard input;
+- **Open with an app** you choose;
+- **Open a URL** such as `things:///add?title={text}`, with `{path}`, `{text}` or `{url}` replaced by the item.
+
+What a script prints or a Shortcut returns is saved like any other result, with the progress panel, Cancel and the
+recent-results menu. Security model: petals only ever come from what you type in Settings — WheelConvert never
+imports them and never runs anything found in a dropped file, link or the clipboard. Before a petal's first run, and
+after every change to it, a dialog shows exactly what will run. Items are passed as arguments, standard input or
+encoded URL parts, never pasted into a command, so file names with quotes, `$()`, backticks or newlines can't inject
+anything. Scripts get a plain login environment, a time limit (2 minutes unless you change it) and at most 10 MB of
+kept output. More detail in [docs/WHEEL-OF-ANYTHING-DECISIONS.md](docs/WHEEL-OF-ANYTHING-DECISIONS.md).
+
 Kindle books (MOBI and AZW3, DRM-free only) convert like any document, and the **Kindle** target makes an EPUB
 tuned for Send to Kindle: pictures resized to Kindle screens, a cover, and a table of contents Kindle can read.
 Documents and PDFs also convert to **MOBI**, the classic Kindle format, for copying onto a Kindle over USB or
@@ -159,7 +177,8 @@ The app binary also has developer modes used by these scripts:
 `--preview-check <file> [seconds]`, which times how quickly a tool preview starts playing (and plays again after a seek),
 `--batch <format> <files…>` (the parallel job queue), `--preset <name> <files…>`,
 `--watch <folder> <preset> <seconds>`, `--intent convert|compress|preset <argument> <files…>` (the Shortcuts actions),
-`--smart-items <input>` (the smart wheel's petals) and `--smart <action[:argument]> <input>`, where the input is files,
+`--smart-items <input>` (the smart wheel's petals), `--smart <action[:argument]> <input>` and `--custom <petal.json> <input>`
+(a custom petal defined in that file, run without the approval dialog), where the input is files,
 `text:<file>`, `html:<file>` or `link:<address>`; copied text is printed as `COPY:<json>` instead of touching the clipboard,
 and `WHEELCONVERT_RESULTS=<folder>` sets where scripted results go.
 

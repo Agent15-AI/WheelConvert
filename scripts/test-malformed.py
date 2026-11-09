@@ -51,5 +51,18 @@ for label, text in {"nul": "a\x00b", "lone surrogate escape": "\udcff".encode("u
             if r.returncode not in (0, 1): bad.append((label, action, f"exit {r.returncode}", r.stderr[-300:]))
         except subprocess.TimeoutExpired:
             bad.append((label, action, "TIMEOUT", ""))
+# Custom petal definitions that are broken or hostile: a clean error, never a crash or a run.
+d = os.path.join(WORK, "custom"); os.makedirs(d)
+target = os.path.join(d, "x.txt"); open(target, "w").write("x")
+for label, body in {"empty": "", "not json": "{nope", "array": "[1,2]", "wrong types": '{"name": 5, "kind": "shell", "script": ["rm"]}',
+                    "unknown kind": '{"name": "x", "kind": "exec", "script": "touch pwned"}', "no script": '{"name": "x", "kind": "shell"}',
+                    "file url": '{"name": "x", "kind": "urlScheme", "urlTemplate": "file:///etc/{path}"}', "huge": '{"name": "' + "x" * 1_000_000 + '"}'}.items():
+    petal = os.path.join(d, label.replace(" ", "-") + ".json"); open(petal, "w").write(body)
+    try:
+        r = subprocess.run([APP, "--custom", petal, target], capture_output=True, text=True, timeout=60, cwd=d)
+        if r.returncode not in (0, 1): bad.append(("custom", label, f"exit {r.returncode}", r.stderr[-300:]))
+        if os.path.exists(os.path.join(d, "pwned")): bad.append(("custom", label, "ran a command", ""))
+    except subprocess.TimeoutExpired:
+        bad.append(("custom", label, "TIMEOUT", ""))
 print(f"{len(bad)} problems")
 for b in bad: print(b)

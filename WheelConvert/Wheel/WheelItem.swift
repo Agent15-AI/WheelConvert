@@ -8,6 +8,7 @@ struct WheelItem: Equatable, Identifiable {
         case fileAction(FileAction)
         case preset(Preset)
         case smart(SmartAction)
+        case custom(CustomPetal)
     }
 
     let action: Action
@@ -18,6 +19,7 @@ struct WheelItem: Equatable, Identifiable {
         case .fileAction(let a): "action." + a.rawValue
         case .preset(let p): "preset." + p.id.uuidString
         case .smart(let a): "smart." + a.rawValue
+        case .custom(let p): "custom." + p.id.uuidString
         }
     }
 
@@ -28,6 +30,7 @@ struct WheelItem: Equatable, Identifiable {
         case .fileAction(let a): a.wheelLabel
         case .preset(let p): p.label.uppercased()
         case .smart(let a): a.wheelLabel
+        case .custom(let p): p.wheelLabel
         }
     }
 
@@ -39,6 +42,7 @@ struct WheelItem: Equatable, Identifiable {
         case .fileAction(let a): a.title
         case .preset(let p): p.name
         case .smart(let a): a.title
+        case .custom(let p): p.name
         }
     }
 
@@ -49,6 +53,7 @@ struct WheelItem: Equatable, Identifiable {
         case .fileAction(let a): a.symbol
         case .preset: "wand.and.stars"
         case .smart(let a): a.symbol
+        case .custom(let p): p.symbol
         }
     }
 

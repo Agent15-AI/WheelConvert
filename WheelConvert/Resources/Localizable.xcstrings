@@ -775,6 +775,40 @@
         }
       }
     },
+    "%lld files are passed as \"$1\", \"$2\"… or input." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld Dateien werden als \"$1\", \"$2\" … bzw. als Eingabe übergeben."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se pasan %lld archivos como \"$1\", \"$2\"… o como entrada."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld fichiers sont transmis comme \"$1\", \"$2\"… ou en entrée."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 個のファイルが \"$1\"、\"$2\"… または入力として渡されます。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 个文件将作为 \"$1\"、\"$2\"… 或输入传递。"
+          }
+        }
+      }
+    },
     "%lld fps" : {
       "localizations" : {
         "de" : {
@@ -1712,6 +1746,40 @@
         }
       }
     },
+    "Action" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aktion"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Acción"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Action"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アクション"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "操作"
+          }
+        }
+      }
+    },
     "Add Background" : {
       "localizations" : {
         "de" : {
@@ -1916,6 +1984,40 @@
         }
       }
     },
+    "Add a custom petal" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eigenes Blatt hinzufügen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añadir un pétalo personalizado"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter un pétale personnalisé"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "カスタム花びらを追加"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加自定花瓣"
+          }
+        }
+      }
+    },
     "Add a frame to save." : {
       "localizations" : {
         "de" : {
@@ -2052,6 +2154,40 @@
         }
       }
     },
+    "Add custom petal" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eigenes Blatt hinzufügen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añadir pétalo personalizado"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter un pétale personnalisé"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "カスタム花びらを追加"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加自定花瓣"
+          }
+        }
+      }
+    },
     "Add preset" : {
       "localizations" : {
         "de" : {
@@ -2150,6 +2286,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "请在视频内部添加分割点，与两端至少相距 0.05 秒。"
+          }
+        }
+      }
+    },
+    "Add your own petals to the Smart Actions wheel: run a Shortcut or a shell script, open an app or a URL with what you drag. Click + to start." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fügen Sie dem Rad „Smarte Aktionen“ eigene Blätter hinzu: Führen Sie mit dem gezogenen Objekt einen Kurzbefehl oder ein Shell-Skript aus oder öffnen Sie es in einer App oder über eine URL. Klicken Sie zum Starten auf +."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añade tus propios pétalos a la rueda de acciones inteligentes: ejecuta un atajo o un script de shell, o abre una app o una URL con lo que arrastres. Haz clic en + para empezar."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajoutez vos propres pétales à la roue Actions intelligentes : exécutez un raccourci ou un script shell, ou ouvrez une app ou une URL avec ce que vous faites glisser. Cliquez sur + pour commencer."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "スマートアクションのホイールに独自の花びらを追加できます。ドラッグしたものでショートカットやシェルスクリプトを実行したり、App や URL で開いたりします。+ をクリックして始めましょう。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "向智能操作轮盘添加你自己的花瓣：用拖移的内容运行快捷指令或 Shell 脚本，或者在 App 或 URL 中打开。点按 + 开始。"
           }
         }
       }
@@ -2697,6 +2867,74 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "任何适用的文件"
+          }
+        }
+      }
+    },
+    "Any file, or for example: pdf, md" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jede Datei, oder z. B.: pdf, md"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cualquier archivo, o por ejemplo: pdf, md"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tout fichier, ou par exemple : pdf, md"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "すべてのファイル、または例: pdf, md"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "任意文件，或例如：pdf, md"
+          }
+        }
+      }
+    },
+    "App" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App"
           }
         }
       }
@@ -4583,6 +4821,40 @@
         }
       }
     },
+    "Choose App…" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App auswählen …"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elegir app…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisir une app…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App を選択…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选取 App…"
+          }
+        }
+      }
+    },
     "Choose Image…" : {
       "localizations" : {
         "de" : {
@@ -4647,6 +4919,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "选取预设"
+          }
+        }
+      }
+    },
+    "Choose a Shortcut" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kurzbefehl auswählen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elegir un atajo"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisir un raccourci"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ショートカットを選択"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选取快捷指令"
           }
         }
       }
@@ -9811,6 +10117,40 @@
         }
       }
     },
+    "Delete custom petal" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eigenes Blatt löschen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eliminar pétalo personalizado"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Supprimer le pétale personnalisé"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "カスタム花びらを削除"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除自定花瓣"
+          }
+        }
+      }
+    },
     "Delete preset" : {
       "localizations" : {
         "de" : {
@@ -9875,6 +10215,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "删除所选标注"
+          }
+        }
+      }
+    },
+    "Delete the selected petal" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ausgewähltes Blatt löschen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eliminar el pétalo seleccionado"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Supprimer le pétale sélectionné"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "選択した花びらを削除"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除所选花瓣"
           }
         }
       }
@@ -12268,6 +12642,108 @@
         }
       }
     },
+    "Files and folders" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dateien und Ordner"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Archivos y carpetas"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fichiers et dossiers"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ファイルとフォルダ"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "文件和文件夹"
+          }
+        }
+      }
+    },
+    "Files and links open in the app; text opens as a text file." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dateien und Links werden in der App geöffnet, Text als Textdatei."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los archivos y enlaces se abren en la app; el texto se abre como archivo de texto."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les fichiers et les liens s’ouvrent dans l’app ; le texte s’ouvre comme fichier texte."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ファイルとリンクは App で開き、テキストはテキストファイルとして開きます。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "文件和链接在 App 中打开；文本作为文本文件打开。"
+          }
+        }
+      }
+    },
+    "Files are the Shortcut’s input; text and links arrive as a text file. If it returns something, the result is saved like other results." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dateien sind die Eingabe des Kurzbefehls; Text und Links kommen als Textdatei an. Gibt er etwas zurück, wird das wie andere Ergebnisse gesichert."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los archivos son la entrada del atajo; el texto y los enlaces llegan como archivo de texto. Si devuelve algo, el resultado se guarda como los demás."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les fichiers sont l’entrée du raccourci ; le texte et les liens arrivent sous forme de fichier texte. S’il renvoie quelque chose, le résultat est enregistré comme les autres."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ファイルはショートカットの入力になり、テキストとリンクはテキストファイルとして渡されます。何かが返されると、ほかの結果と同じように保存されます。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "文件作为快捷指令的输入；文本和链接以文本文件传入。如果它返回内容，结果会像其他结果一样存储。"
+          }
+        }
+      }
+    },
     "Fill cells (crop edges)" : {
       "localizations" : {
         "de" : {
@@ -13449,6 +13925,40 @@
     "INSTAGRAM" : {
       "shouldTranslate" : false
     },
+    "Icon" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Symbol"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Icono"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Icône"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アイコン"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "图标"
+          }
+        }
+      }
+    },
     "Image" : {
       "localizations" : {
         "de" : {
@@ -13785,6 +14295,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "范围无效。"
+          }
+        }
+      }
+    },
+    "It took longer than %lld seconds and was stopped." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Es dauerte länger als %lld Sekunden und wurde gestoppt."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tardó más de %lld segundos y se detuvo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L’opération a duré plus de %lld secondes et a été arrêtée."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 秒を超えたため停止しました。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "运行超过 %lld 秒，已停止。"
           }
         }
       }
@@ -14694,6 +15238,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Lien"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "リンク"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "链接"
+          }
+        }
+      }
+    },
+    "Links" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Links"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enlaces"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Liens"
           }
         },
         "ja" : {
@@ -16329,6 +16907,40 @@
         }
       }
     },
+    "New Petal" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Neues Blatt"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuevo pétalo"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nouveau pétale"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新規花びら"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新花瓣"
+          }
+        }
+      }
+    },
     "New Preset" : {
       "localizations" : {
         "de" : {
@@ -17525,6 +18137,40 @@
         }
       }
     },
+    "Only these extensions" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nur diese Dateiendungen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solo estas extensiones"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uniquement ces extensions"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "これらの拡張子のみ"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "仅限这些扩展名"
+          }
+        }
+      }
+    },
     "Open" : {
       "localizations" : {
         "de" : {
@@ -17661,6 +18307,74 @@
         }
       }
     },
+    "Open With an App" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mit einer App öffnen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir con una app"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvrir avec une app"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App で開く"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用 App 打开"
+          }
+        }
+      }
+    },
+    "Open a URL" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "URL öffnen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir una URL"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvrir une URL"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "URL を開く"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开 URL"
+          }
+        }
+      }
+    },
     "Open in Private Window" : {
       "localizations" : {
         "de" : {
@@ -17725,6 +18439,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "在文件夹中打开终端"
+          }
+        }
+      }
+    },
+    "Open with: %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Öffnen mit: %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir con: %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvrir avec : %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "開く App: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开方式：%@"
           }
         }
       }
@@ -18831,6 +19579,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "百分比"
+          }
+        }
+      }
+    },
+    "Pictures" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bilder"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Imágenes"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Images"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "画像"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "图片"
           }
         }
       }
@@ -21728,6 +22510,142 @@
         }
       }
     },
+    "Run" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ausführen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ejecutar"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exécuter"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "実行"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "运行"
+          }
+        }
+      }
+    },
+    "Run a Shell Script" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shell-Skript ausführen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ejecutar un script de shell"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exécuter un script shell"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "シェルスクリプトを実行"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "运行 Shell 脚本"
+          }
+        }
+      }
+    },
+    "Run a Shortcut" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kurzbefehl ausführen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ejecutar un atajo"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exécuter un raccourci"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ショートカットを実行"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "运行快捷指令"
+          }
+        }
+      }
+    },
+    "Run “%@”?" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "„%@“ ausführen?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Ejecutar «%@»?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exécuter « %@ » ?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@”を実行しますか?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "运行“%@”？"
+          }
+        }
+      }
+    },
     "Runs one of your WheelConvert presets, such as Instagram 1080 px JPG, on files." : {
       "localizations" : {
         "de" : {
@@ -21758,6 +22676,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "对文件运行你的某个 WheelConvert 预设，例如“Instagram 1080 像素 JPG”。"
+          }
+        }
+      }
+    },
+    "Runs with zsh. Files arrive as \"$1\", \"$2\"… (use \"$@\" for all), text and links on standard input; what the script prints is saved as the result. WheelConvert never puts names into the script itself. The first run, and the first after any change, shows the script for your approval." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Läuft mit zsh. Dateien kommen als \"$1\", \"$2\" … an (\"$@\" für alle), Text und Links über die Standardeingabe; was das Skript ausgibt, wird als Ergebnis gesichert. WheelConvert fügt Namen nie in das Skript selbst ein. Beim ersten Ausführen und nach jeder Änderung wird das Skript zur Bestätigung angezeigt."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se ejecuta con zsh. Los archivos llegan como \"$1\", \"$2\"… (usa \"$@\" para todos), el texto y los enlaces por la entrada estándar; lo que imprime el script se guarda como resultado. WheelConvert nunca inserta nombres en el propio script. La primera ejecución, y la primera tras cada cambio, muestra el script para que lo apruebes."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "S’exécute avec zsh. Les fichiers arrivent comme \"$1\", \"$2\"… (utilisez \"$@\" pour tous), le texte et les liens sur l’entrée standard ; ce que le script affiche est enregistré comme résultat. WheelConvert n’insère jamais de noms dans le script lui-même. La première exécution, et la première après chaque modification, affiche le script pour approbation."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "zsh で実行されます。ファイルは \"$1\"、\"$2\"…（すべては \"$@\"）として、テキストとリンクは標準入力で渡され、スクリプトの出力が結果として保存されます。WheelConvert が名前をスクリプト本体に埋め込むことはありません。初回の実行時と変更後の最初の実行時には、スクリプトが表示され承認を求められます。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用 zsh 运行。文件以 \"$1\"、\"$2\"…（全部用 \"$@\"）传入，文本和链接通过标准输入传入；脚本的输出会存储为结果。WheelConvert 绝不会把名称写进脚本本身。首次运行以及每次更改后的首次运行都会显示脚本供你批准。"
           }
         }
       }
@@ -21826,6 +22778,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "存储链接"
+          }
+        }
+      }
+    },
+    "SF Symbol name or emoji" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SF Symbol-Name oder Emoji"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nombre de SF Symbol o emoji"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nom de symbole SF ou emoji"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SF Symbol 名または絵文字"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SF Symbol 名称或表情符号"
           }
         }
       }
@@ -23839,6 +24825,40 @@
         }
       }
     },
+    "Shell script" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shell-Skript"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Script de shell"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Script shell"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "シェルスクリプト"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shell 脚本"
+          }
+        }
+      }
+    },
     "Shift" : {
       "comment" : "Modifier key name",
       "localizations" : {
@@ -23870,6 +24890,74 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Shift"
+          }
+        }
+      }
+    },
+    "Shortcut name" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name des Kurzbefehls"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nombre del atajo"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nom du raccourci"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ショートカット名"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "快捷指令名称"
+          }
+        }
+      }
+    },
+    "Shortcut: %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kurzbefehl: %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Atajo: %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Raccourci : %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ショートカット: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "快捷指令：%@"
           }
         }
       }
@@ -24040,6 +25128,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "在转换轮盘上显示"
+          }
+        }
+      }
+    },
+    "Show on the Smart Actions wheel" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Im Rad „Smarte Aktionen“ zeigen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar en la rueda de acciones inteligentes"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afficher sur la roue Actions intelligentes"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "スマートアクションのホイールに表示"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在智能操作轮盘上显示"
           }
         }
       }
@@ -27013,6 +28135,80 @@
         }
       }
     },
+    "The Shortcut “%@” didn’t finish. %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Kurzbefehl „%@“ wurde nicht beendet. %@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "The Shortcut “%1$@” didn’t finish. %2$@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El atajo «%@» no ha terminado. %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le raccourci « %@ » ne s’est pas terminé. %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ショートカット“%@”が完了しませんでした。%@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "快捷指令“%@”未完成。%@"
+          }
+        }
+      }
+    },
+    "The Shortcut’s result is larger than 10 MB." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Ergebnis des Kurzbefehls ist größer als 10 MB."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El resultado del atajo supera los 10 MB."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le résultat du raccourci dépasse 10 Mo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ショートカットの結果が 10 MB を超えています。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "快捷指令的结果大于 10 MB。"
+          }
+        }
+      }
+    },
     "The WebP encoder could not encode this image." : {
       "localizations" : {
         "de" : {
@@ -28416,6 +29612,40 @@
         }
       }
     },
+    "The link is passed on standard input or as text." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Link wird über die Standardeingabe oder als Text übergeben."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El enlace se pasa por la entrada estándar o como texto."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le lien est transmis sur l’entrée standard ou sous forme de texte."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "リンクは標準入力またはテキストとして渡されます。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "链接通过标准输入或作为文本传递。"
+          }
+        }
+      }
+    },
     "The macOS PDF compression filter is unavailable." : {
       "localizations" : {
         "de" : {
@@ -29004,6 +30234,46 @@
         }
       }
     },
+    "The script stopped with exit code %lld. %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Skript wurde mit Exit-Code %lld beendet. %@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "The script stopped with exit code %1$lld. %2$@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El script terminó con el código de salida %lld. %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le script s’est arrêté avec le code de sortie %lld. %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "スクリプトは終了コード %lld で停止しました。%@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "脚本以退出码 %lld 停止。%@"
+          }
+        }
+      }
+    },
     "The selected range is silent at this threshold. Lower the threshold or turn off automatic trimming." : {
       "localizations" : {
         "de" : {
@@ -29308,6 +30578,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "该文本文件无法读取或超过了 %lld MB 的导入限制。"
+          }
+        }
+      }
+    },
+    "The text is passed on standard input or as a .txt file." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Text wird über die Standardeingabe oder als .txt-Datei übergeben."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El texto se pasa por la entrada estándar o como archivo .txt."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le texte est transmis sur l’entrée standard ou sous forme de fichier .txt."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "テキストは標準入力または .txt ファイルとして渡されます。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "文本通过标准输入或作为 .txt 文件传递。"
           }
         }
       }
@@ -29786,6 +31090,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "此内容不提供该操作。"
+          }
+        }
+      }
+    },
+    "This custom petal runs the action below, which you set up in Settings → Custom. Only run actions you wrote or understand." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieses eigene Blatt führt die unten stehende Aktion aus, die Sie unter „Einstellungen“ > „Eigene“ eingerichtet haben. Führen Sie nur Aktionen aus, die Sie selbst geschrieben haben oder verstehen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este pétalo personalizado ejecuta la acción de abajo, que configuraste en Ajustes > Personalizado. Ejecuta solo acciones que hayas escrito o entiendas."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce pétale personnalisé exécute l’action ci-dessous, que vous avez configurée dans Réglages > Personnalisé. N’exécutez que des actions que vous avez écrites ou que vous comprenez."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このカスタム花びらは、設定 >「カスタム」で設定した以下のアクションを実行します。自分で書いたか内容を理解しているアクションだけを実行してください。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此自定花瓣会运行下面的操作，该操作由你在“设置”>“自定”中设置。只运行你自己编写或理解的操作。"
           }
         }
       }
@@ -30540,6 +31878,40 @@
         }
       }
     },
+    "Time limit: %lld seconds" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zeitlimit: %lld Sekunden"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Límite de tiempo: %lld segundos"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Limite de temps : %lld secondes"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "制限時間: %lld 秒"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "时间限制：%lld 秒"
+          }
+        }
+      }
+    },
     "Timeline" : {
       "localizations" : {
         "de" : {
@@ -30978,6 +32350,74 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "试试看：拖移练习文件并按下 %@。你可以在“设置”中更改按键。"
+          }
+        }
+      }
+    },
+    "URL" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "URL"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "URL"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "URL"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "URL"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "URL"
+          }
+        }
+      }
+    },
+    "URL: %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "URL: %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "URL: %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "URL : %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "URL: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "URL：%@"
           }
         }
       }
@@ -32653,6 +34093,40 @@
         }
       }
     },
+    "Works with" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Funktioniert mit"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Funciona con"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fonctionne avec"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "対象"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "适用于"
+          }
+        }
+      }
+    },
     "Works with more than files: drag a picture from a web page, selected text or a link, then press the key. Remove a background, make a QR code, clean a link, hash a file — whatever fits what you’re dragging, all on your Mac." : {
       "localizations" : {
         "de" : {
@@ -32882,8 +34356,122 @@
     "usage: WheelConvert --convert <file> <format> [--options <json>] | --tool <tool> <files…> [--options <json>]" : {
       "shouldTranslate" : false
     },
+    "zsh script (%lld s limit):\n%@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "zsh-Skript (Limit %lld s):\n%@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "zsh script (%1$lld s limit):\n%2$@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Script de zsh (límite de %lld s):\n%@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Script zsh (limite %lld s) :\n%@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "zsh スクリプト（制限 %lld 秒）:\n%@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "zsh 脚本（限时 %lld 秒）：\n%@"
+          }
+        }
+      }
+    },
+    "{path}, {text} and {url} are replaced with the item, encoded so it can’t change the rest of the URL. file: and javascript: URLs aren’t allowed." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "{path}, {text} und {url} werden durch das Objekt ersetzt – so codiert, dass es den Rest der URL nicht ändern kann. file:- und javascript:-URLs sind nicht erlaubt."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "{path}, {text} y {url} se sustituyen por el elemento, codificado para que no pueda cambiar el resto de la URL. No se permiten URL file: ni javascript:."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "{path}, {text} et {url} sont remplacés par l’élément, encodé pour ne pas pouvoir modifier le reste de l’URL. Les URL file: et javascript: ne sont pas autorisées."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "{path}、{text}、{url} は項目に置き換えられ、URL のほかの部分を変更できないようにエンコードされます。file: と javascript: の URL は使用できません。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "{path}、{text} 和 {url} 会替换为该项目，并经过编码，无法更改 URL 的其余部分。不允许 file: 和 javascript: URL。"
+          }
+        }
+      }
+    },
     "×" : {
       "shouldTranslate" : false
+    },
+    "“%@” couldn’t open the item: %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "„%@“ konnte das Objekt nicht öffnen: %@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "“%1$@” couldn’t open the item: %2$@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "«%@» no ha podido abrir el elemento: %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "« %@ » n’a pas pu ouvrir l’élément : %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@”で項目を開けませんでした: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@”无法打开该项目：%@"
+          }
+        }
+      }
     },
     "“%@” doesn’t apply to these files." : {
       "localizations" : {
@@ -32955,6 +34543,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "“%@”已为 %lld 像素或更小。"
+          }
+        }
+      }
+    },
+    "“%@” is passed as \"$1\" or input." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "„%@“ wird als \"$1\" bzw. als Eingabe übergeben."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "«%@» se pasa como \"$1\" o como entrada."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "« %@ » est transmis comme \"$1\" ou en entrée."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@”は \"$1\" または入力として渡されます。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@”将作为 \"$1\" 或输入传递。"
           }
         }
       }

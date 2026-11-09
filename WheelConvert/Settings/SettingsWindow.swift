@@ -30,6 +30,7 @@ struct SettingsView: View {
             ConversionSettings().tabItem { Label("Conversion", systemImage: "arrow.triangle.2.circlepath") }
             CompressionSettings().tabItem { Label("Compression", systemImage: "arrow.down.right.and.arrow.up.left") }
             PresetSettings().tabItem { Label("Presets", systemImage: "wand.and.stars") }
+            CustomPetalSettings().tabItem { Label("Custom", systemImage: "puzzlepiece.extension") }
             WatchFolderSettings().tabItem { Label("Watch Folders", systemImage: "eye") }
             FormatCompatibility().tabItem { Label("Formats", systemImage: "tablecells") }
             AboutSettings().tabItem { Label("About", systemImage: "info.circle") }
@@ -476,6 +477,153 @@ struct PresetEditor: View {
             Text("Removes camera, location, author and software details. Orientation and color profile are kept.")
                 .font(.callout).foregroundStyle(.secondary)
         }
+    }
+}
+
+// MARK: - Custom petals
+
+struct CustomPetalSettings: View {
+    @ObservedObject private var settings = AppSettings.shared
+    @State private var selection: CustomPetal.ID?
+
+    var body: some View {
+        HSplitView {
+            VStack(spacing: 0) {
+                List(selection: $selection) {
+                    ForEach(settings.customPetals) { petal in
+                        HStack(spacing: 8) {
+                            if let symbol = petal.symbol { Image(systemName: symbol).frame(width: 20) } else { Text(petal.icon.prefix(2)).frame(width: 20) }
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(petal.name.isEmpty ? String(localized: "Untitled") : petal.name).lineLimit(1)
+                                Text(petal.kind.title).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                            }
+                        }
+                        .tag(petal.id)
+                    }
+                    .onMove { settings.customPetals.move(fromOffsets: $0, toOffset: $1) }
+                }
+                Divider()
+                HStack(spacing: 8) {
+                    Button { add() } label: { Image(systemName: "plus") }
+                        .help("Add a custom petal").accessibilityLabel("Add custom petal")
+                    Button { remove() } label: { Image(systemName: "minus") }
+                        .disabled(selection == nil).help("Delete the selected petal").accessibilityLabel("Delete custom petal")
+                    Spacer()
+                }
+                .buttonStyle(.borderless)
+                .padding(8)
+            }
+            .frame(minWidth: 200, maxWidth: 260)
+            if let index = settings.customPetals.firstIndex(where: { $0.id == selection }) {
+                CustomPetalEditor(petal: $settings.customPetals[index]).frame(minWidth: 360)
+            } else {
+                Text("Add your own petals to the Smart Actions wheel: run a Shortcut or a shell script, open an app or a URL with what you drag. Click + to start.")
+                    .multilineTextAlignment(.center).foregroundStyle(.secondary).padding(30)
+                    .frame(minWidth: 360, maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .onAppear { if selection == nil { selection = settings.customPetals.first?.id } }
+    }
+
+    private func add() {
+        let petal = CustomPetal(name: String(localized: "New Petal"))
+        settings.customPetals.append(petal)
+        selection = petal.id
+    }
+
+    private func remove() {
+        guard let index = settings.customPetals.firstIndex(where: { $0.id == selection }) else { return }
+        settings.customPetals.remove(at: index)
+        selection = settings.customPetals[safe: min(index, settings.customPetals.count - 1)]?.id
+    }
+}
+
+struct CustomPetalEditor: View {
+    @Binding var petal: CustomPetal
+    @State private var shortcuts: [String] = []
+
+    var body: some View {
+        Form {
+            Section {
+                TextField("Name", text: $petal.name)
+                LabeledContent("Icon") {
+                    HStack {
+                        TextField("Icon", text: $petal.icon, prompt: Text("SF Symbol name or emoji")).labelsHidden()
+                        if let symbol = petal.symbol { Image(systemName: symbol).accessibilityHidden(true) }
+                    }
+                }
+                Toggle("Show on the Smart Actions wheel", isOn: $petal.showOnWheel)
+            }
+            Section("Works with") {
+                Toggle("Pictures", isOn: $petal.acceptsPictures)
+                Toggle("Text", isOn: $petal.acceptsText)
+                Toggle("Links", isOn: $petal.acceptsLinks)
+                Toggle("Files and folders", isOn: $petal.acceptsFiles)
+                if petal.acceptsFiles {
+                    TextField("Only these extensions", text: $petal.extensions, prompt: Text("Any file, or for example: pdf, md"))
+                }
+            }
+            Section {
+                Picker("Action", selection: $petal.kind) { ForEach(CustomPetal.Kind.allCases) { Text($0.title).tag($0) } }
+                switch petal.kind {
+                case .shortcut:
+                    HStack {
+                        TextField("Shortcut name", text: $petal.shortcutName)
+                        if !shortcuts.isEmpty {
+                            Menu("Choose") { ForEach(shortcuts, id: \.self) { name in Button(name) { petal.shortcutName = name } } }
+                                .fixedSize().accessibilityLabel("Choose a Shortcut")
+                        }
+                    }
+                    .task { await loadShortcuts() }
+                case .shell:
+                    TextEditor(text: $petal.script)
+                        .font(.system(.body, design: .monospaced))
+                        .frame(minHeight: 110)
+                        .accessibilityLabel("Shell script")
+                case .openWith:
+                    LabeledContent("App") {
+                        HStack {
+                            Text(petal.appPath.isEmpty ? String(localized: "None") : FileManager.default.displayName(atPath: petal.appPath)).foregroundStyle(.secondary)
+                            Button("Choose App…", action: chooseApp)
+                        }
+                    }
+                case .urlScheme:
+                    TextField("URL", text: $petal.urlTemplate, prompt: Text(verbatim: "myapp://new?text={text}"))
+                }
+                if petal.kind == .shell || petal.kind == .shortcut {
+                    Stepper(value: $petal.timeoutSeconds, in: 5...3600, step: 5) { Text("Time limit: \(petal.timeoutSeconds) seconds") }
+                }
+            } header: {
+                Text("Action")
+            } footer: {
+                Text(help).font(.callout).foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+    }
+
+    private var help: String {
+        switch petal.kind {
+        case .shortcut: String(localized: "Files are the Shortcut’s input; text and links arrive as a text file. If it returns something, the result is saved like other results.")
+        case .shell: String(localized: "Runs with zsh. Files arrive as \"$1\", \"$2\"… (use \"$@\" for all), text and links on standard input; what the script prints is saved as the result. WheelConvert never puts names into the script itself. The first run, and the first after any change, shows the script for your approval.")
+        case .openWith: String(localized: "Files and links open in the app; text opens as a text file.")
+        case .urlScheme: String(localized: "{path}, {text} and {url} are replaced with the item, encoded so it can’t change the rest of the URL. file: and javascript: URLs aren’t allowed.")
+        }
+    }
+
+    private func chooseApp() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.application]
+        panel.directoryURL = URL(fileURLWithPath: "/Applications")
+        panel.prompt = String(localized: "Choose")
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        petal.appPath = url.path
+    }
+
+    /// The person's Shortcuts, by name, to pick from (reading the list runs nothing).
+    private func loadShortcuts() async {
+        guard let result = try? await ProcessRunner.run(URL(fileURLWithPath: "/usr/bin/shortcuts"), ["list"]), result.status == 0 else { return }
+        shortcuts = result.stdoutText.split(whereSeparator: \.isNewline).map(String.init)
     }
 }
 

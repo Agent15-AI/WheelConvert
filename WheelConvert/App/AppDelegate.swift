@@ -57,9 +57,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @MainActor
     static func perform(_ item: WheelItem, content: DragContent) {
-        if case .smart(let action) = item.action {
+        switch item.action {
+        case .smart(let action):
             SmartRunner.perform(action, content: content)
             return
+        case .custom(let petal):
+            CustomRunner.run(petal, content: content)
+            return
+        default:
+            break
         }
         let urls = content.files
         guard !urls.isEmpty else { return }
@@ -72,7 +78,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             FileActions.perform(action, urls: urls)
         case .preset(let preset):
             preset.run(on: urls)
-        case .smart:
+        case .smart, .custom:
             break
         }
     }

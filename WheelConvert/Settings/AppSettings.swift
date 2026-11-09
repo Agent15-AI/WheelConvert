@@ -56,6 +56,13 @@ final class AppSettings: ObservableObject {
         hasCompletedWelcome = defaults.bool(forKey: Keys.welcome)
         saveDestination = SaveDestination(rawValue: defaults.string(forKey: Keys.saveDestination) ?? "") ?? .besideOriginal
         saveFolder = defaults.string(forKey: Keys.saveFolder).map { URL(fileURLWithPath: $0, isDirectory: true) }
+        // Each petal decodes on its own, filling fields added in later versions from a blank petal. Assigned once,
+        // before any default value exists, so loading never writes the list back.
+        let storedPetals = defaults.data(forKey: Keys.customPetals).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [Any] } ?? []
+        customPetals = storedPetals.compactMap { item in
+            guard let json = try? JSONSerialization.data(withJSONObject: item) else { return nil }
+            return try? JSONDecoder().decode(CustomPetal.self, from: json, defaults: CustomPetal())
+        }
         if let data = defaults.data(forKey: Keys.conversion),
            let stored = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
             // Each format decodes on its own, filling fields added in later versions from the defaults.
@@ -103,6 +110,7 @@ final class AppSettings: ObservableObject {
         static let videoCompression = "videoCompressionDefaults"
         static let presets = "presets"
         static let watchFolders = "watchFolders"
+        static let customPetals = "customPetals"
     }
 
     @Published var conversionModifiers: NSEvent.ModifierFlags { didSet { defaults.set(Int(conversionModifiers.rawValue), forKey: Keys.convert) } }
@@ -126,6 +134,10 @@ final class AppSettings: ObservableObject {
     }
     @Published var presets: [Preset] = [] {
         didSet { defaults.set(try? JSONEncoder().encode(presets), forKey: Keys.presets) }
+    }
+    /// Settings → Custom. Only ever filled in by the person, in Settings.
+    @Published var customPetals: [CustomPetal] {
+        didSet { defaults.set(try? JSONEncoder().encode(customPetals), forKey: Keys.customPetals) }
     }
     @Published var watchFolders: [WatchFolder] = [] {
         didSet { defaults.set(try? JSONEncoder().encode(watchFolders), forKey: Keys.watchFolders) }
