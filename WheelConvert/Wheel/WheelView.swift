@@ -9,7 +9,7 @@ enum Brand {
 
 /// Radial menu of petals around a central label. It is also the drop target for the drag that opened it.
 final class WheelView: NSView {
-    var onDrop: ((WheelItem, [URL]) -> Void)?
+    var onDrop: ((WheelItem, DragContent) -> Void)?
     /// Click mode (opened from the Finder menu): the clicked petal, or nil for Escape or a click off the petals.
     var onClick: ((WheelItem?) -> Void)?
     var clickMode = false {
@@ -20,6 +20,8 @@ final class WheelView: NSView {
 
     private(set) var items: [WheelItem] = []
     private var idleText = ""
+    /// What the wheel was opened for; pictures from browsers are only read from the drop.
+    private var content: DragContent?
     private var highlighted: Int? {
         didSet { if highlighted != oldValue { highlightChanged() } }
     }
@@ -66,7 +68,7 @@ final class WheelView: NSView {
         hubText.truncationMode = .end
         ringLayer.addSublayer(hubLayer)
         ringLayer.addSublayer(hubText)
-        registerForDraggedTypes([.fileURL])
+        registerForDraggedTypes([.fileURL, .URL, .string, .rtf, .html] + DragContent.imageTypes)
         setAccessibilityRole(.group)
         setAccessibilityLabel("Conversion wheel")
     }
@@ -83,9 +85,10 @@ final class WheelView: NSView {
 
     static func diameter(for count: Int) -> CGFloat { 2 * (outerRadius(for: count) + margin) }
 
-    func configure(items: [WheelItem], idleText: String) {
+    func configure(items: [WheelItem], idleText: String, content: DragContent? = nil) {
         self.items = items
         self.idleText = idleText
+        self.content = content
         outerRadius = Self.outerRadius(for: items.count)
         highlighted = nil
         rebuild()
@@ -413,11 +416,17 @@ final class WheelView: NSView {
     }
 
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
-        guard let index = highlighted, let item = items[safe: index] else { return false }
-        let urls = DragMonitor.fileURLs(on: sender.draggingPasteboard)
-        guard !urls.isEmpty else { return false }
-        DispatchQueue.main.async { self.onDrop?(item, urls) }
-        return true
+        guard let index = highlighted, let item = items[safe: index], let dropped = DragContent.read(sender.draggingPasteboard) else { return false }
+        // The petals were chosen for what the wheel opened with; a different payload is refused.
+        guard dropped == content || content == nil else { return false }
+        do {
+            let ready = try dropped.materialized(from: sender.draggingPasteboard)
+            DispatchQueue.main.async { self.onDrop?(item, ready) }
+            return true
+        } catch {
+            DispatchQueue.main.async { FileActions.alert(error.localizedDescription) }
+            return false
+        }
     }
 
     override func concludeDragOperation(_ sender: NSDraggingInfo?) {

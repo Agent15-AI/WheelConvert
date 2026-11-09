@@ -73,6 +73,42 @@
         }
       }
     },
+    "WheelConvert Smart Actions" : {
+      "comment" : "Finder Services menu item (Info.plist NSServices)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "WheelConvert Smarte Aktionen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Acciones inteligentes de WheelConvert"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actions intelligentes WheelConvert"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "WheelConvert スマートアクション"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "WheelConvert 智能操作"
+          }
+        }
+      }
+    },
     "WheelConvert Tools" : {
       "comment" : "Finder Services menu item (Info.plist NSServices)",
       "extractionState" : "manual",

@@ -1,4 +1,5 @@
 import AppKit
+import OSLog
 
 /// Borderless panel that never activates the app, so the drag source keeps focus. Opened from the
 /// Finder menu it takes key status (still without activating) so Escape can close it.
@@ -10,12 +11,14 @@ final class WheelPanel: NSPanel {
 
 /// Shows the wheel under the pointer during a drag and reports the chosen petal.
 final class WheelController {
-    var onChoose: ((WheelItem, [URL]) -> Void)?
+    /// Debug-level, so nothing is stored unless someone streams it (`log stream --level debug`).
+    private static let log = Logger(subsystem: "app.wheelconvert", category: "wheel")
+    var onChoose: ((WheelItem, DragContent) -> Void)?
 
     private let panel: WheelPanel
     private let wheel: WheelView
     private(set) var mode: WheelMode?
-    private var urls: [URL] = []
+    private var content: DragContent?
     private var outsideClicks: Any?
 
     init() {
@@ -33,15 +36,14 @@ final class WheelController {
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle, .transient]
         wheel = WheelView(frame: NSRect(x: 0, y: 0, width: size, height: size))
         panel.contentView = wheel
-        wheel.onDrop = { [weak self] item, urls in
+        wheel.onDrop = { [weak self] item, content in
             self?.dismiss()
-            self?.onChoose?(item, urls)
+            self?.onChoose?(item, content)
         }
         wheel.onClick = { [weak self] item in
-            guard let self else { return }
-            let urls = self.urls
+            guard let self, let content = self.content else { return }
             self.dismiss()
-            if let item { self.onChoose?(item, urls) }
+            if let item { self.onChoose?(item, content) }
         }
         // A click anywhere else takes key status away: treat it like Escape.
         NotificationCenter.default.addObserver(forName: NSWindow.didResignKeyNotification, object: panel, queue: .main) { [weak self] _ in
@@ -54,15 +56,16 @@ final class WheelController {
     var isOpenForDrag: Bool { panel.isVisible && !wheel.clickMode }
     var isDragInside: Bool { panel.isVisible && wheel.isDragInside }
 
-    /// Opens (or switches) the wheel for these files, centered on the pointer.
-    /// - Parameter byClick: opened from the Finder menu; petals are chosen by clicking instead of dropping.
-    func show(mode: WheelMode, urls: [URL], byClick: Bool = false) {
-        let sameContent = panel.isVisible && self.mode == mode && self.urls == urls && wheel.clickMode == byClick
+    /// Opens (or switches) the wheel for what is dragged, centered on the pointer.
+    /// - Parameter byClick: opened from the Services menu; petals are chosen by clicking instead of dropping.
+    func show(mode: WheelMode, content: DragContent, byClick: Bool = false) {
+        let sameContent = panel.isVisible && self.mode == mode && self.content == content && wheel.clickMode == byClick
         guard !sameContent else { return }
         let wasVisible = panel.isVisible
         self.mode = mode
-        self.urls = urls
-        let (items, idle) = WheelItem.items(for: mode, urls: urls)
+        self.content = content
+        let (items, idle) = WheelItem.items(for: mode, content: content)
+        Self.log.debug("Wheel \(mode.rawValue, privacy: .public): \(items.map(\.id).joined(separator: " "), privacy: .public)")
         let size = WheelView.diameter(for: items.count)
         var frame = panel.frame
         if !wasVisible {
@@ -79,7 +82,7 @@ final class WheelController {
         }
         panel.setFrame(frame, display: false)
         wheel.frame = NSRect(origin: .zero, size: frame.size)
-        wheel.configure(items: items, idleText: idle)
+        wheel.configure(items: items, idleText: idle, content: content)
         wheel.clickMode = byClick
         panel.acceptsKey = byClick
         if byClick {
@@ -103,6 +106,6 @@ final class WheelController {
         wheel.clickMode = false
         panel.orderOut(nil)
         mode = nil
-        urls = []
+        content = nil
     }
 }

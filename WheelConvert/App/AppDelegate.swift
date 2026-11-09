@@ -12,16 +12,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Self.clearHelperQuarantine()
         wheel = WheelController()
         menuBar = MenuBarController()
-        wheel.onChoose = { item, urls in
-            Task { @MainActor in Self.perform(item, urls: urls) }
+        wheel.onChoose = { item, content in
+            Task { @MainActor in Self.perform(item, content: content) }
         }
-        monitor.onShowWheel = { [weak self] mode, urls in self?.wheel.show(mode: mode, urls: urls) }
+        monitor.onShowWheel = { [weak self] mode, content in
+            self?.wheel.show(mode: mode, content: content)
+            if mode == .smart { Task { await OnDevice.refreshTranslationLanguages() } }
+        }
         monitor.onDismissWheel = { [weak self] in self?.wheel.dismiss() }
         monitor.isDragInsideWheel = { [weak self] in self?.wheel.isDragInside ?? false }
         monitor.isWheelVisible = { [weak self] in self?.wheel.isOpenForDrag ?? false }
         monitor.start()
         NSApp.servicesProvider = self
-        MainActor.assumeIsolated { Updater.shared.start() }
+        MainActor.assumeIsolated {
+            Updater.shared.start()
+            Task { await OnDevice.refreshTranslationLanguages() }
+        }
         // @Published fires before the value changes, so the watcher reads Settings on the next turn.
         settingsObserver = AppSettings.shared.$watchFolders.combineLatest(AppSettings.shared.$presets)
             .receive(on: DispatchQueue.main)
@@ -41,15 +47,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return false
     }
 
-    /// Finder's right-click items (NSServices in Info.plist): open that wheel at the pointer for the selection.
+    /// Right-click Services (NSServices in Info.plist): open that wheel at the pointer for the selection.
+    /// The smart wheel's service also takes selected text and links.
     @objc func showWheel(_ pasteboard: NSPasteboard, userData: String, error: AutoreleasingUnsafeMutablePointer<NSString>) {
-        let urls = DragMonitor.fileURLs(on: pasteboard)
-        guard !urls.isEmpty, let mode = WheelMode(rawValue: userData) else { return }
-        wheel.show(mode: mode, urls: urls, byClick: true)
+        guard let mode = WheelMode(rawValue: userData), let content = try? DragContent.read(pasteboard)?.materialized(from: pasteboard),
+              mode == .smart || !content.files.isEmpty else { return }
+        wheel.show(mode: mode, content: content, byClick: true)
     }
 
     @MainActor
-    static func perform(_ item: WheelItem, urls: [URL]) {
+    static func perform(_ item: WheelItem, content: DragContent) {
+        if case .smart(let action) = item.action {
+            SmartRunner.perform(action, content: content)
+            return
+        }
+        let urls = content.files
+        guard !urls.isEmpty else { return }
         switch item.action {
         case .convert(let format):
             JobCenter.shared.convert(urls, to: format)
@@ -59,6 +72,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             FileActions.perform(action, urls: urls)
         case .preset(let preset):
             preset.run(on: urls)
+        case .smart:
+            break
         }
     }
 
@@ -73,8 +88,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// Staging folders left behind by a crash are removed from recent results folders.
+    /// Staging folders left behind by a crash are removed from recent results folders, and dropped
+    /// pictures' private copies from earlier sessions are deleted.
     private static func removeStaleStaging() {
+        try? FileManager.default.removeItem(at: DragContent.scratchRoot)
         let folders = [FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first,
                        FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first,
                        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first].compactMap { $0 }

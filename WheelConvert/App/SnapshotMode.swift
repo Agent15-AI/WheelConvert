@@ -2,18 +2,19 @@ import AppKit
 import SwiftUI
 
 /// `WheelConvert --snapshot <what> <out.png> [files…]` renders UI offscreen for visual checks.
-/// what: wheel-convert | wheel-tools | wheel-actions | settings[:conversion|compression|presets|watch|formats|about] | welcome | tool:<ToolKind> | progress
+/// what: wheel-convert | wheel-tools | wheel-actions | wheel-smart (files, text:<file>, html:<file> or link:<address>) | settings[:conversion|compression|presets|watch|formats|about] | welcome | tool:<ToolKind> | progress
 @MainActor
 enum SnapshotMode {
     static func run(_ args: [String]) async throws {
         guard args.count >= 2 else { throw WheelError("usage: --snapshot <what> <out.png> [files…]") }
         let what = args[0], out = URL(fileURLWithPath: args[1])
         let files = args.dropFirst(2).map { URL(fileURLWithPath: $0) }
+        let content = args.count > 2 ? try DragContent.arguments(Array(args.dropFirst(2))) : .files([])
         let view: NSView
         var size = NSSize(width: 900, height: 660)
         if what.hasPrefix("wheel-") {
             let mode = WheelMode(rawValue: String(what.dropFirst(6))) ?? .convert
-            let (items, idle) = WheelItem.items(for: mode, urls: files)
+            let (items, idle) = WheelItem.items(for: mode, content: content)
             let d = WheelView.diameter(for: items.count)
             size = NSSize(width: d, height: d)
             let wheel = WheelView(frame: NSRect(origin: .zero, size: size))

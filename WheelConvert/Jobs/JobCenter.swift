@@ -15,6 +15,8 @@ final class JobState: ObservableObject, Identifiable {
     @Published var completed = 0
     @Published var failures: [(name: String, message: String)] = []
     @Published var outputs: [URL] = []
+    /// Shown when the job finishes, for jobs whose result isn't a saved file (a checksum, speech).
+    var summary: String?
     var task: Task<Void, Never>?
 
     init(title: String, total: Int) {
@@ -32,7 +34,9 @@ final class JobState: ObservableObject, Identifiable {
         case .running:
             let names = active.sorted { $0.key < $1.key }.map(\.value.name).joined(separator: ", ")
             return total > 1 ? String(localized: "\(completed) of \(total) done — \(names)") : names
-        case .finished: return outputs.count == 1 ? String(localized: "Saved \(outputs[0].lastPathComponent)") : String(localized: "Saved \(outputs.count) items")
+        case .finished:
+            if let summary { return summary }
+            return outputs.count == 1 ? String(localized: "Saved \(outputs[0].lastPathComponent)") : String(localized: "Saved \(outputs.count) items")
         case .failed: return failures.count == total ? (total == 1 ? String(localized: "Couldn’t finish") : String(localized: "Operation failed")) : String(localized: "Finished with errors")
         case .cancelled: return String(localized: "Cancelled")
         }
@@ -119,11 +123,12 @@ final class JobCenter: ObservableObject {
     }
 
     /// One job over the whole selection (merge, join, collage…), saving a single result set.
+    /// - Parameter name: shown while it runs; defaults to the file name or the number of files.
     @discardableResult
-    func runBatch(title: String, items: [URL], canAsk: Bool = true, work: @escaping (@escaping (Double) -> Void) async throws -> [URL]) -> JobState? {
+    func runBatch(title: String, items: [URL], name: String? = nil, canAsk: Bool = true, work: @escaping (@escaping (Double) -> Void) async throws -> [URL]) -> JobState? {
         guard let folder = saveFolder(for: items, canAsk: canAsk) else { return nil }
         let job = JobState(title: title, total: 1)
-        let name = items.count == 1 ? items[0].lastPathComponent : String(localized: "\(items.count) files")
+        let name = name ?? (items.count == 1 ? items[0].lastPathComponent : String(localized: "\(items.count) files"))
         job.active[0] = (name, 0)
         start(job, folder: folder) {
             do {
@@ -142,7 +147,8 @@ final class JobCenter: ObservableObject {
     /// Settings → Save results for a new job: `.some(nil)` saves next to each original, a folder saves
     /// there, and nil means the person cancelled the "ask each time" panel.
     private func saveFolder(for items: [URL], canAsk: Bool) -> URL?? {
-        guard showsUI else { return .some(nil) }
+        // Scripted runs save beside the originals, or where the tests ask (results of text and links have no original).
+        guard showsUI else { return .some(ProcessInfo.processInfo.environment["WHEELCONVERT_RESULTS"].map { URL(fileURLWithPath: $0, isDirectory: true) }) }
         let settings = AppSettings.shared
         switch settings.saveDestination {
         case .besideOriginal: return .some(nil)
@@ -154,7 +160,8 @@ final class JobCenter: ObservableObject {
             panel.canChooseDirectories = true
             panel.canCreateDirectories = true
             panel.prompt = String(localized: "Save Here")
-            panel.message = items.count == 1 ? String(localized: "Choose where to save the result for “\(items[0].lastPathComponent)”.") : String(localized: "Choose where to save the results for \(items.count) files.")
+            panel.message = items.count == 1 ? String(localized: "Choose where to save the result for “\(items[0].lastPathComponent)”.")
+                : items.isEmpty ? String(localized: "Choose where to save the result.") : String(localized: "Choose where to save the results for \(items.count) files.")
             panel.directoryURL = items.first?.deletingLastPathComponent()
             NSApp.activate(ignoringOtherApps: true)
             guard panel.runModal() == .OK, let url = panel.url else { return nil }

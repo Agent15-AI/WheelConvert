@@ -38,6 +38,9 @@ func XCTAssertNotEqual<T: Equatable>(_ a: @autoclosure () throws -> T, _ b: @aut
 func XCTAssertGreaterThan<T: Comparable>(_ a: @autoclosure () throws -> T, _ b: @autoclosure () throws -> T, file: StaticString = #file, line: UInt = #line) {
     assertions += 1; if let x = try? a(), let y = try? b(), x > y { return }; XCTFail("not greater", file: file, line: line)
 }
+func XCTUnwrap<T>(_ v: @autoclosure () throws -> T?, file: StaticString = #file, line: UInt = #line) throws -> T {
+    assertions += 1; if let value = try v() { return value }; XCTFail("unexpected nil", file: file, line: line); throw NSError(domain: "XCTUnwrap", code: 1)
+}
 func XCTAssertThrowsError<T>(_ e: @autoclosure () throws -> T, file: StaticString = #file, line: UInt = #line) {
     assertions += 1; if (try? e()) != nil { XCTFail("did not throw", file: file, line: line) }
 }

@@ -1,11 +1,12 @@
 // End-to-end driver: shows a draggable file, then synthesizes a real drag with a modifier tap,
 // moves onto a petal and drops — the same input a person produces.
-// usage: swift DragDriver.swift <file> <modifier: shift|command|control> <petal index> <petal count> [screenshot path]
+// usage: swift DragDriver.swift <file | text:<words> | link:<address>> <modifier: shift|command|control|option> <petal index> <petal count> [screenshot path]
 import AppKit
 import CoreGraphics
 
 let args = CommandLine.arguments
-let file = URL(fileURLWithPath: args[1])
+let source = args[1]
+let file = URL(fileURLWithPath: source)
 let modifier = args[2]
 let petal = Int(args[3])!
 let count = Int(args[4])!
@@ -13,8 +14,11 @@ let shot = args.count > 5 ? args[5] : nil
 
 final class SourceView: NSView, NSDraggingSource {
     override func mouseDragged(with event: NSEvent) {
-        let item = NSDraggingItem(pasteboardWriter: file as NSURL)
-        item.setDraggingFrame(bounds.insetBy(dx: 60, dy: 60), contents: NSWorkspace.shared.icon(forFile: file.path))
+        // Text and links are dragged the way an app drags a selection or a link: as a string or URL, no file.
+        let writer: NSPasteboardWriting = source.hasPrefix("text:") ? String(source.dropFirst(5)) as NSString
+            : source.hasPrefix("link:") ? NSURL(string: String(source.dropFirst(5)))! : file as NSURL
+        let item = NSDraggingItem(pasteboardWriter: writer)
+        item.setDraggingFrame(bounds.insetBy(dx: 60, dy: 60), contents: NSWorkspace.shared.icon(forFile: source.hasPrefix("/") ? file.path : "/System/Applications/TextEdit.app"))
         beginDraggingSession(with: [item], event: event, source: self)
     }
     func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation { [.copy, .generic] }
@@ -52,7 +56,8 @@ DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
     post(.leftMouseDown, p); pause(0.15)
     for _ in 0..<12 { p.x += 8; post(.leftMouseDragged, p); pause(0.03) }
     pause(0.3)
-    let (code, flag): (CGKeyCode, CGEventFlags) = modifier == "command" ? (55, .maskCommand) : modifier == "control" ? (59, .maskControl) : (56, .maskShift)
+    let (code, flag): (CGKeyCode, CGEventFlags) = modifier == "command" ? (55, .maskCommand) : modifier == "control" ? (59, .maskControl)
+        : modifier == "option" ? (58, .maskAlternate) : (56, .maskShift)
     key(code, down: true, flags: flag); pause(0.15)
     for _ in 0..<3 { post(.leftMouseDragged, p, flags: flag); pause(0.03) }
     key(code, down: false, flags: []); pause(0.6)

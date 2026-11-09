@@ -137,5 +137,23 @@ have sample.tar || /usr/bin/tar -cf sample.tar tree
 have sample.tar.gz || /usr/bin/tar -czf sample.tar.gz tree
 have sample.7z || /usr/bin/tar -c --format 7zip -f sample.7z tree
 have single.txt.gz || { printf 'A single compressed file.\n' > single.txt && gzip -9 single.txt; }
+# Smart wheel: known colors (red 11,200 px, blue 8,000 px, green 800 px), a subject on a plain background,
+# a QR code with known text, and files with known checksums.
+# Written byte by byte: ffmpeg's color source goes through YUV and would store 252 instead of 255.
+have smart-palette.png || python3 -I -c "
+import struct, zlib
+def color(x, y): return b'\\x00\\x00\\xff' if x >= 120 else b'\\x00\\xff\\x00' if x < 40 and y >= 80 else b'\\xff\\x00\\x00'
+rows = b''.join(b'\\x00' + b''.join(color(x, y) for x in range(200)) for y in range(100))
+chunk = lambda t, d: struct.pack('>I', len(d)) + t + d + struct.pack('>I', zlib.crc32(t + d))
+open('smart-palette.png', 'wb').write(b'\\x89PNG\\r\\n\\x1a\\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', 200, 100, 8, 2, 0, 0, 0)) + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b''))"
+have smart-subject.png || ff -f lavfi -i color=c=0xE6E6E6:s=800x600 -frames:v 1 \
+  -vf "geq=r='if(lt(hypot(X-400,Y-330),170),205,230)':g='if(lt(hypot(X-400,Y-330),170),60,230)':b='if(lt(hypot(X-400,Y-330),170),40,230)'" smart-subject.png
+if ! have smart-qr.png; then
+  printf 'WheelConvert QR 42' > qr.txt
+  out=$(WHEELCONVERT_RESULTS=$F $APP --smart makeQRCode text:$F/qr.txt | sed -n 's/^OUT://p' | head -1)
+  mv "$out" smart-qr.png; rm -f qr.txt
+fi
+have hash-empty.bin || : > hash-empty.bin
+have hash-abc.txt || printf 'abc' > hash-abc.txt
 rm -f doc.html
 echo "Fixtures ready in $F"

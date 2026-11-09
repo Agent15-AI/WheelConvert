@@ -276,6 +276,169 @@ err = None if r.returncode == 1 and "one kind at a time" in r.stderr else f"mixe
 print(f"{'OK  ' if not err else 'FAIL'} {'intent mixed kinds error':28} {err or ''}")
 if err: failures.append(("intent mixed kinds", err))
 
+# Smart wheel petals through --smart. Clipboard text comes back as COPY:<json> lines (the real clipboard is never
+# touched); results of text and links go to WHEELCONVERT_RESULTS. Every case also checks for leftover staging files.
+def png_alpha(path):
+    """Fraction of fully transparent pixels in an 8-bit RGBA PNG (decoded here, no dependencies)."""
+    import struct, zlib
+    data = open(path, "rb").read(); i = 8; idat = b""; w = h = ctype = None
+    while i < len(data):
+        n, kind = struct.unpack(">I4s", data[i:i + 8]); body = data[i + 8:i + 8 + n]; i += 12 + n
+        if kind == b"IHDR": w, h, depth, ctype = struct.unpack(">IIBB", body[:10])
+        elif kind == b"IDAT": idat += body
+    if ctype != 6: return None
+    raw = zlib.decompress(idat); stride = w * 4; prev = bytearray(stride); clear = 0; pos = 0
+    for _ in range(h):
+        f = raw[pos]; row = bytearray(raw[pos + 1:pos + 1 + stride]); pos += 1 + stride
+        for x in range(stride):
+            a = row[x - 4] if x >= 4 else 0; b = prev[x]; c = prev[x - 4] if x >= 4 else 0
+            if f == 1: row[x] = (row[x] + a) & 255
+            elif f == 2: row[x] = (row[x] + b) & 255
+            elif f == 3: row[x] = (row[x] + (a + b) // 2) & 255
+            elif f == 4:
+                p = a + b - c; pa, pb, pc = abs(p - a), abs(p - b), abs(p - c)
+                row[x] = (row[x] + (a if pa <= pb and pa <= pc else b if pb <= pc else c)) & 255
+        clear += sum(1 for x in range(3, stride, 4) if row[x] == 0); prev = row
+    return clear / (w * h)
+
+def copied(lines): return [json.loads(l[5:]) for l in lines if l.startswith("COPY:")]
+def items(*inputs): return subprocess.run([APP, "--smart-items", *inputs], capture_output=True, text=True).stdout.split()
+
+SMART = os.path.join(WORK, "smart"); os.makedirs(SMART, exist_ok=True)
+def sfile(name, data=b""):
+    path = os.path.join(SMART, name)
+    with open(path, "wb") as f: f.write(data if isinstance(data, bytes) else data.encode())
+    return path
+def sfix(name):
+    dst = os.path.join(SMART, name); shutil.copy2(os.path.join(FIX, name), dst); return dst
+
+weird = ["-rf.txt", "it's \"quoted\".txt", "new\nline.txt", "naïve 日本 🚀.txt", "$(touch pwned).txt", "`id` back.txt"]
+for name in weird: sfile(name, name)
+os.makedirs(os.path.join(SMART, "folder", "sub"), exist_ok=True); sfile("folder/sub/x.txt", "x"); sfile("folder/.DS_Store", "junk")
+many = [sfile(f"many-{i:02d}.bin", str(i)) for i in range(60)]
+cjk = sfile("cjk.txt", "東京 مرحبا שלום 👋🏽 Ünïcödé — mixed RTL and CJK")
+huge = sfile("huge.txt", ("All work and no play makes a dull day. " * 130000))
+empty_text = sfile("empty.txt", " \n\t ")
+html = sfile("rich.html", "<p>Some <b>bold</b> and <a href=\"https://example.com\">a link</a></p><ul><li>One</li></ul>")
+corrupt = sfile("corrupt.png", b"\x89PNG\r\n\x1a\nnot really a picture")
+readonly = os.path.join(SMART, "readonly"); os.makedirs(readonly, exist_ok=True); sfile("readonly/r.txt", "read only"); os.chmod(readonly, 0o555)
+gps = sfix("sample.jpg"); gps_jpg = os.path.join(SMART, "gps.jpg"); os.rename(gps, gps_jpg)
+subprocess.run([os.path.join(ROOT, "Vendor/build/ExifTool/exiftool"), "-q", "-overwrite_original", "-GPSLatitude=1.29", "-GPSLatitudeRef=N", "-GPSLongitude=103.85", "-GPSLongitudeRef=E", gps_jpg], check=True)
+pristine = {p: open(p, "rb").read() for p in [corrupt, gps_jpg, huge]}
+
+def exif(path): return subprocess.run([os.path.join(ROOT, "Vendor/build/ExifTool/exiftool"), "-s", "-GPS:all", "-Make", path], capture_output=True, text=True).stdout
+def unzip_names(path):
+    import zipfile
+    import unicodedata  # macOS hands file names over decomposed (NFD); compare what people see
+    with zipfile.ZipFile(path) as z: return sorted(unicodedata.normalize("NFC", i.filename) for i in z.infolist() if i.flag_bits & 0x800 or i.filename.isascii())
+
+URL_CASES = [("https://example.com/page?utm_source=news&id=7&fbclid=XYZ", "https://example.com/page?id=7"),
+             ("https://www.example.org/a/b?gclid=1&UTM_MEDIUM=x&q=caf%C3%A9#top", "https://www.example.org/a/b?q=caf%C3%A9#top"),
+             ("https://shop.example/item?utm_campaign=c&utm_content=d", "https://shop.example/item"),
+             ("https://example.com/?keep=1", "https://example.com/?keep=1")]
+
+SMART_CASES = [
+    # (name, arguments, check(stdout lines, stderr) -> error or None)
+    ("smart palette exact", ["palette", sfix("smart-palette.png")], lambda o, e: None if copied(o) == ["#FF0000\n#0000FF\n#00FF00"] else f"{copied(o)}"),
+    ("smart qr decode", None, None),
+    ("smart remove background", ["removeBackground", sfix("smart-subject.png")],
+     lambda o, e: (lambda f: None if f is not None and 0.05 < f < 0.95 else f"transparent fraction {f}")(png_alpha(outs_of(o)[0])) if outs_of(o) else e),
+    ("smart strip location", ["stripMetadata", gps_jpg], lambda o, e: None if outs_of(o) and "GPSLatitude" not in exif(outs_of(o)[0]) and "GPSLatitude" in exif(gps_jpg) else f"{outs_of(o)} {e}"),
+    ("smart resize 1080", ["resize:1080", shutil.copy2(big_fixture("big.png"), os.path.join(SMART, "big.png")) and os.path.join(SMART, "big.png")],
+     lambda o, e: None if outs_of(o) and max(width(outs_of(o)[0]), height(outs_of(o)[0])) == 1080 else f"{outs_of(o)} {e}"),
+    ("smart resize never enlarges", ["resize:3840", sfix("sample.png")], lambda o, e: None if not outs_of(o) and "px or smaller" in "\n".join(o) else f"{o}"),
+    ("smart sha256 known", ["sha256", sfix("hash-abc.txt")], lambda o, e: None if copied(o) == ["ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"] else f"{copied(o)}"),
+    ("smart sha256 empty file", ["sha256", sfix("hash-empty.bin")], lambda o, e: None if copied(o) == ["e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"] else f"{copied(o)}"),
+    ("smart md5 known", ["md5", sfix("hash-abc.txt")], lambda o, e: None if copied(o) == ["900150983cd24fb0d6963f7d28e17f72"] else f"{copied(o)}"),
+    ("smart md5 many files", ["md5", *many], lambda o, e: None if len(re.findall(r"^[0-9a-f]{32}  many-", "".join(copied(o)), re.M)) == 60 else f"{o[:2]}"),
+    ("smart hash odd names", ["sha256", *[os.path.join(SMART, n) for n in weird]],
+     lambda o, e: None if len(re.findall(r"^[0-9a-f]{64}  ", "".join(copied(o)), re.M)) == len(weird) else f"{copied(o)}"),
+    ("smart verify match", ["verifyChecksum:SHA256 (abc) = BA7816BF8F01CFEA414140DE5DAE2223B00361A396177A9CB410FF61F20015AD", sfix("hash-abc.txt")], lambda o, e: None if "MATCH" in o else f"{o} {e}"),
+    ("smart verify mismatch", ["verifyChecksum:900150983cd24fb0d6963f7d28e17f73", sfix("hash-abc.txt")], lambda o, e: None if any(l.startswith("MISMATCH:900150983cd24fb0d6963f7d28e17f72") for l in o) else f"{o}"),
+    ("smart zip odd names", ["zip", *[os.path.join(SMART, n) for n in weird]],
+     lambda o, e: zip_check(o, e)),
+    ("smart zip folder", ["zip", os.path.join(SMART, "folder")],
+     lambda o, e: None if outs_of(o) and unzip_names(outs_of(o)[0]) == ["folder/", "folder/sub/", "folder/sub/x.txt"] else f"{outs_of(o) and unzip_names(outs_of(o)[0])} {e}"),
+    ("smart zip read-only folder", ["zip", os.path.join(readonly, "r.txt")], lambda o, e: None if outs_of(o) and os.path.dirname(outs_of(o)[0]) == RESULTS else f"{o} {e}"),
+    ("smart qr cjk round trip", ["makeQRCode", "text:" + cjk], lambda o, e: qr_check(o, open(cjk, encoding="utf-8").read())),
+    ("smart qr link", ["makeQRCode", "link:https://example.com/a?b=c"], lambda o, e: qr_check(o, "https://example.com/a?b=c")),
+    ("smart count cjk", ["countWords", "text:" + cjk], lambda o, e: None if [l for l in o if l.startswith("COUNT:")] else f"{o}"),
+    ("smart count huge", ["countWords", "text:" + huge], lambda o, e: None if "COUNT:1170000 5070000 1" in o else f"{o}"),
+    ("smart quote cjk", ["copyQuoted", "text:" + cjk], lambda o, e: None if copied(o) == ["> " + open(cjk, encoding="utf-8").read()] else f"{copied(o)}"),
+    ("smart markdown", ["copyMarkdown", "html:" + html], lambda o, e: None if copied(o) == ["Some **bold** and [a link](https://example.com)\n\n- One"] else f"{copied(o)}"),
+    ("smart save text cjk", ["saveText", "text:" + cjk], lambda o, e: None if outs_of(o) and outs_of(o)[0].endswith(".txt") and open(outs_of(o)[0], encoding="utf-8").read() == open(cjk, encoding="utf-8").read() + "\n" else f"{o}"),
+    ("smart save huge text", ["saveText", "text:" + huge], lambda o, e: None if outs_of(o) and os.path.getsize(outs_of(o)[0]) == os.path.getsize(huge) + 1 else f"{o}"),
+    ("smart save markdown", ["saveText", "html:" + html], lambda o, e: None if outs_of(o) and outs_of(o)[0].endswith(".md") else f"{o}"),
+    ("smart save link", ["saveLink", "link:https://example.com/x?y=1"], lambda o, e: None if outs_of(o) and plist(outs_of(o)[0]).get("URL") == "https://example.com/x?y=1" else f"{o}"),
+    ("smart speak muted", ["speak", "text:" + cjk], lambda o, e: None if "FAIL" not in "".join(o) and not e.strip() else f"{o} {e}"),
+    ("smart corrupt palette", ["palette", corrupt], lambda o, e: None if "ERROR:" in e and not copied(o) else f"{o} {e}"),
+    ("smart corrupt background", ["removeBackground", corrupt], lambda o, e: None if any(l.startswith("FAIL:") for l in o) and not outs_of(o) else f"{o} {e}"),
+    ("smart corrupt resize", ["resize:512", corrupt], lambda o, e: None if any(l.startswith("FAIL:") for l in o) and not outs_of(o) else f"{o} {e}"),
+] + [(f"smart clean link {i}", ["cleanLink", "link:" + src], lambda o, e, want=want: None if copied(o) == [want] else f"{copied(o)}") for i, (src, want) in enumerate(URL_CASES)]
+
+RESULTS = os.path.join(SMART, "results"); os.makedirs(RESULTS, exist_ok=True)
+def outs_of(lines): return [l[4:] for l in lines if l.startswith("OUT:")]
+def height(path):
+    m = re.search(r"pixelHeight: (\d+)", subprocess.run(["sips", "-g", "pixelHeight", path], capture_output=True, text=True).stdout)
+    return int(m.group(1)) if m else 0
+def plist(path):
+    import plistlib
+    return plistlib.load(open(path, "rb"))
+def qr_check(lines, want):
+    if not outs_of(lines): return f"no QR {lines}"
+    r = subprocess.run([APP, "--tool", "readQRCode", outs_of(lines)[0]], capture_output=True, text=True)
+    got = [l.split("\t", 1)[1] for l in r.stdout.splitlines() if l.startswith("CODE:")]
+    return None if got == [want] else f"decoded {got!r}"
+def zip_check(lines, err):
+    if not outs_of(lines): return f"no zip {lines} {err}"
+    names = unzip_names(outs_of(lines)[0])
+    return None if names == sorted(weird) else f"zip names {names}"
+
+for name, args, check in SMART_CASES:
+    if only and not any(o in name for o in only): continue
+    if args is None:  # the QR fixture decodes to its known text (made by make-fixtures.sh)
+        r = subprocess.run([APP, "--tool", "readQRCode", os.path.join(FIX, "smart-qr.png")], capture_output=True, text=True)
+        err = None if "CODE:smart-qr.png\tWheelConvert QR 42" in r.stdout else r.stdout + r.stderr
+    else:
+        t = time.time()
+        r = subprocess.run([APP, "--smart", *args], capture_output=True, text=True, timeout=300, env={**os.environ, "WHEELCONVERT_RESULTS": RESULTS, "WHEELCONVERT_MUTE": "1"})
+        lines = r.stdout.splitlines()
+        err = f"exit {r.returncode}" if r.returncode not in (0, 1) else check(lines, r.stderr)
+    for folder in [SMART, RESULTS]:
+        if [f for f in os.listdir(folder) if f.startswith(".wheelconvert")]: err = (err or "") + " leftover staging"
+    print(f"{'OK  ' if not err else 'FAIL'} {name:28} {err or ''}")
+    if err: failures.append((name, err))
+
+# Availability: only petals that work for the content (and on this macOS) appear.
+AVAILABILITY = [
+    ("smart items empty text", items("text:" + empty_text) == [], "no petals for whitespace"),
+    ("smart items huge text", "smart.makeQRCode" not in items("text:" + huge) and "smart.summarize" not in items("text:" + huge) and "smart.saveText" in items("text:" + huge), "huge text: no QR or summary"),
+    ("smart items folder", items(os.path.join(SMART, "folder")) == ["smart.reveal", "action.copyPath", "smart.zip"], "folder petals"),
+    ("smart items 0-byte", items(sfix("hash-empty.bin"))[:3] == ["smart.sha256", "smart.md5", "smart.verifyChecksum"], "0-byte file petals"),
+    ("smart items link", items("link:https://example.com")[:3] == ["smart.cleanLink", "smart.makeQRCode", "smart.saveLink"], "link petals"),
+    ("smart items picture", "smart.palette" in items(sfix("smart-palette.png")) and "tool.extractText" in items(sfix("smart-palette.png")), "picture petals"),
+]
+for name, ok, what in AVAILABILITY:
+    if only and not any(o in name for o in only): continue
+    print(f"{'OK  ' if ok else 'FAIL'} {name:28} {'' if ok else what}")
+    if not ok: failures.append((name, what))
+
+# On-device language features run only where this Mac offers them (macOS 26, languages installed, Apple Intelligence on).
+german = sfile("german.txt", "Guten Morgen. Das Wetter ist heute sehr schön und wir gehen später zusammen in den Park.")
+story = sfile("story.txt", " ".join(["The committee met on Tuesday to review the budget for the new library. After a long discussion, members agreed to fund the building but postponed a decision on staffing until spring."] * 2))
+for name, action, source in [("smart translate", "translate", german), ("smart summarize", "summarize", story)]:
+    if only and not any(o in name for o in only): continue
+    if f"smart.{action}" not in items("text:" + source):
+        print(f"SKIP {name:28} not offered on this Mac"); continue
+    r = subprocess.run([APP, "--smart", action, "text:" + source], capture_output=True, text=True, timeout=120)
+    out = copied(r.stdout.splitlines())
+    err = None if out and out[0].strip() and out[0] != open(source).read() else f"{out} {r.stderr.strip()[-200:]}"
+    print(f"{'OK  ' if not err else 'FAIL'} {name:28} {(out[0][:60] if out else '') if not err else err}")
+    if err: failures.append((name, err))
+for path, data in pristine.items():
+    if open(path, "rb").read() != data: failures.append(("smart originals untouched", path))
+os.chmod(readonly, 0o755)
+
 # Localization: every string is translated (or marked as not needing it) with the same placeholders,
 # and the app answers in the language it's asked for.
 if not only or any("locali" in o for o in only):

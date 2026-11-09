@@ -7,6 +7,7 @@ struct WheelItem: Equatable, Identifiable {
         case tool(ToolKind)
         case fileAction(FileAction)
         case preset(Preset)
+        case smart(SmartAction)
     }
 
     let action: Action
@@ -16,6 +17,7 @@ struct WheelItem: Equatable, Identifiable {
         case .tool(let t): "tool." + t.rawValue
         case .fileAction(let a): "action." + a.rawValue
         case .preset(let p): "preset." + p.id.uuidString
+        case .smart(let a): "smart." + a.rawValue
         }
     }
 
@@ -25,6 +27,7 @@ struct WheelItem: Equatable, Identifiable {
         case .tool(let t): t.wheelLabel
         case .fileAction(let a): a.wheelLabel
         case .preset(let p): p.label.uppercased()
+        case .smart(let a): a.wheelLabel
         }
     }
 
@@ -35,6 +38,7 @@ struct WheelItem: Equatable, Identifiable {
         case .tool(let t): t.title
         case .fileAction(let a): a.title
         case .preset(let p): p.name
+        case .smart(let a): a.title
         }
     }
 
@@ -44,6 +48,7 @@ struct WheelItem: Equatable, Identifiable {
         case .tool(let t): t.symbol
         case .fileAction(let a): a.symbol
         case .preset: "wand.and.stars"
+        case .smart(let a): a.symbol
         }
     }
 
@@ -51,7 +56,19 @@ struct WheelItem: Equatable, Identifiable {
     static let presetLimit = 6
 
     /// Builds the petals for a wheel and the idle center text.
-    static func items(for mode: WheelMode, urls: [URL]) -> (items: [WheelItem], idle: String) {
+    static func items(for mode: WheelMode, content: DragContent) -> (items: [WheelItem], idle: String) {
+        let urls = content.files
+        if mode == .smart {
+            let items = SmartAction.petals(for: content).map { WheelItem(action: $0) }
+            let idle: String = switch content {
+            case .files(let urls): urls.count == 1 ? (FileFormat.detect(urls[0])?.wheelLabel ?? String(localized: "FILE")) : String(localized: "\(urls.count) FILES")
+            case .image: String(localized: "PICTURE")
+            case .link: String(localized: "LINK")
+            case .text: String(localized: "TEXT")
+            }
+            return (items, items.isEmpty ? String(localized: "Nothing to do") : idle)
+        }
+        guard !urls.isEmpty else { return ([], "") }
         let formats = urls.map(FileFormat.detect)
         let folders = urls.map { (try? $0.resourceValues(forKeys: [.isDirectoryKey, .isPackageKey])).map { ($0.isDirectory ?? false) && !($0.isPackage ?? false) } ?? false }
         let count = urls.count
@@ -73,6 +90,8 @@ struct WheelItem: Equatable, Identifiable {
             return (tools.map { WheelItem(action: .tool($0)) }, tools.isEmpty ? String(localized: "No tools available") : String(localized: "TOOLS"))
         case .actions:
             return (FileAction.allCases.map { WheelItem(action: .fileAction($0)) }, String(localized: "ACTIONS"))
+        case .smart:
+            return ([], "") // handled above
         }
     }
 }

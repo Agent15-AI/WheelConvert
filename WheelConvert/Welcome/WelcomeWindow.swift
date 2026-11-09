@@ -33,7 +33,7 @@ struct WelcomeView: View {
     @State private var page = 0
     @ObservedObject private var settings = AppSettings.shared
     @State private var launchAtLogin = LoginItem.isEnabled
-    private let pages = 5
+    private let pages = 6
 
     var body: some View {
         ZStack {
@@ -47,6 +47,7 @@ struct WelcomeView: View {
                     case 1: wheelPage(.convert, title: "Convert while you drag", text: "Start dragging a file in Finder, then press the key. Drop it on a format — the converted copy appears right next to the original.")
                     case 2: wheelPage(.tools, title: "File tools", text: "Compress, crop, trim, redact, merge and more. Press the tools key while dragging to see the tools for that kind of file.")
                     case 3: wheelPage(.actions, title: "File actions", text: "AirDrop, Float, Copy, Move, Copy Path and Terminal work with any file or folder.")
+                    case 4: wheelPage(.smart, title: "Smart actions", text: "Works with more than files: drag a picture from a web page, selected text or a link, then press the key. Remove a background, make a QR code, clean a link, hash a file — whatever fits what you’re dragging, all on your Mac.")
                     default: setup
                     }
                 }

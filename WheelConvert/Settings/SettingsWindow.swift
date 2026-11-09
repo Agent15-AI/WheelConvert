@@ -67,10 +67,11 @@ struct GeneralSettings: View {
                 ShortcutRow(mode: .convert)
                 ShortcutRow(mode: .tools)
                 ShortcutRow(mode: .actions)
+                ShortcutRow(mode: .smart)
             } header: {
                 Text("Wheel shortcuts")
             } footer: {
-                Text("Start dragging a file, then press the keys. The wheel stays open until you drop.").font(.callout).foregroundStyle(.secondary)
+                Text("Start dragging a file, then press the keys. The wheel stays open until you drop. Smart Actions also work with pictures, text and links dragged from other apps.").font(.callout).foregroundStyle(.secondary)
             }
             Section {
                 Picker("Save results", selection: $settings.saveDestination) { ForEach(SaveDestination.allCases) { Text($0.title).tag($0) } }

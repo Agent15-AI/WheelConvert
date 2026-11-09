@@ -2,7 +2,7 @@ import AppKit
 
 /// Which wheel a shortcut opens.
 enum WheelMode: String, CaseIterable, Codable, Identifiable {
-    case convert, tools, actions
+    case convert, tools, actions, smart
     var id: String { rawValue }
     var title: String { String(localized: titleKey) }
     private var titleKey: String.LocalizationValue {
@@ -10,6 +10,7 @@ enum WheelMode: String, CaseIterable, Codable, Identifiable {
         case .convert: "Convert"
         case .tools: "File Tools"
         case .actions: "File Actions"
+        case .smart: "Smart Actions"
         }
     }
 }
@@ -17,8 +18,9 @@ enum WheelMode: String, CaseIterable, Codable, Identifiable {
 /// The drag/shortcut state machine, separated from the polling so it can be tested.
 ///
 /// A drag has begun when the shared drag pasteboard changes while the button is held. While a drag
-/// carries files, pressing a configured modifier combination selects a wheel; the choice latches
-/// until the button is released or Escape is pressed, so the keys can be let go after tapping them.
+/// carries files (or, for the smart wheel, anything `DragContent` reads), pressing a configured modifier
+/// combination selects a wheel; the choice latches until the button is released or Escape is pressed,
+/// so the keys can be let go after tapping them.
 struct DragTracker {
     struct Input {
         var buttonDown: Bool
@@ -28,7 +30,7 @@ struct DragTracker {
     }
 
     enum Effect: Equatable {
-        case show(WheelMode, [URL])
+        case show(WheelMode, DragContent)
         case dismiss
     }
 
@@ -45,14 +47,14 @@ struct DragTracker {
     private var lastValidTrigger: TimeInterval?
     private var shownMode: WheelMode?
     private var shownChangeCount: Int?
-    private var cachedFiles: [URL] = []
-    private var cachedFilesChangeCount: Int?
+    private var cachedContent: DragContent?
+    private var cachedContentChangeCount: Int?
 
     /// - Parameters:
-    ///   - files: Reads the dragged files; called once per pasteboard change.
+    ///   - content: Reads what is dragged; called once per pasteboard change.
     ///   - mode: The wheel a modifier combination opens.
     mutating func update(_ input: Input, now: TimeInterval, wheelVisible: Bool, dragInsideWheel: Bool,
-                         files readFiles: () -> [URL], mode: (NSEvent.ModifierFlags) -> WheelMode?) -> Effect? {
+                         content readContent: () -> DragContent?, mode: (NSEvent.ModifierFlags) -> WheelMode?) -> Effect? {
         // Shortcut latch.
         if input.buttonDown && !input.escapeDown {
             let newlyPressed = !input.modifiers.subtracting(lastModifiers).isEmpty
@@ -71,11 +73,11 @@ struct DragTracker {
             if let before = changeCountAtMouseDown, input.changeCount != before { activeDragChangeCount = input.changeCount }
         }
         let dragActive = activeDragChangeCount != nil && activeDragChangeCount == input.changeCount
-        if dragActive && cachedFilesChangeCount != input.changeCount {
-            cachedFiles = readFiles()
-            cachedFilesChangeCount = input.changeCount
+        if dragActive && cachedContentChangeCount != input.changeCount {
+            cachedContent = readContent()
+            cachedContentChangeCount = input.changeCount
         }
-        let files = dragActive ? cachedFiles : []
+        let content = dragActive ? cachedContent : nil
 
         var effect: Effect?
         if input.escapeDown && !wasEscapeDown {
@@ -83,12 +85,12 @@ struct DragTracker {
             if wheelVisible || shownMode != nil { effect = .dismiss }
             shownMode = nil
             shownChangeCount = nil
-        } else if let latched = latchedMode, input.buttonDown, !files.isEmpty {
+        } else if let latched = latchedMode, input.buttonDown, let content, latched == .smart || !content.files.isEmpty {
             lastValidTrigger = now
             if shownMode != latched || shownChangeCount != input.changeCount || !wheelVisible {
                 shownMode = latched
                 shownChangeCount = input.changeCount
-                effect = .show(latched, files)
+                effect = .show(latched, content)
             }
         } else if wheelVisible, !dragInsideWheel {
             if lastValidTrigger.map({ now - $0 >= dismissGrace }) ?? true {
@@ -109,10 +111,10 @@ struct DragTracker {
     }
 }
 
-/// Watches system-wide file drags without any special permissions by polling cheap global state:
+/// Watches system-wide drags without any special permissions by polling cheap global state:
 /// the left mouse button, the drag pasteboard's change count, and the modifier keys.
 final class DragMonitor {
-    var onShowWheel: ((WheelMode, [URL]) -> Void)?
+    var onShowWheel: ((WheelMode, DragContent) -> Void)?
     var onDismissWheel: (() -> Void)?
     var isDragInsideWheel: (() -> Bool)?
     var isWheelVisible: (() -> Bool)?
@@ -153,9 +155,9 @@ final class DragMonitor {
             changeCount: dragPasteboard.changeCount)
         let visible = isWheelVisible?() == true
         let effect = tracker.update(input, now: ProcessInfo.processInfo.systemUptime, wheelVisible: visible, dragInsideWheel: isDragInsideWheel?() == true,
-                                    files: { Self.fileURLs(on: dragPasteboard) }, mode: { AppSettings.shared.mode(for: $0) })
+                                    content: { DragContent.read(dragPasteboard) }, mode: { AppSettings.shared.mode(for: $0) })
         switch effect {
-        case .show(let mode, let files): onShowWheel?(mode, files)
+        case .show(let mode, let content): onShowWheel?(mode, content)
         case .dismiss: onDismissWheel?()
         case nil: break
         }

@@ -44,6 +44,10 @@ final class AppSettings: ObservableObject {
         conversionModifiers = NSEvent.ModifierFlags(rawValue: UInt(defaults.object(forKey: Keys.convert) as? Int ?? Int(NSEvent.ModifierFlags.shift.rawValue)))
         toolsModifiers = NSEvent.ModifierFlags(rawValue: UInt(defaults.object(forKey: Keys.tools) as? Int ?? Int(NSEvent.ModifierFlags.command.rawValue)))
         actionsModifiers = NSEvent.ModifierFlags(rawValue: UInt(defaults.object(forKey: Keys.actions) as? Int ?? Int(NSEvent.ModifierFlags.control.rawValue)))
+        // ⌥ unless an earlier version's settings already gave it to another wheel; then no key until one is chosen.
+        let option = Int(NSEvent.ModifierFlags.option.rawValue)
+        let optionTaken = [Keys.convert, Keys.tools, Keys.actions].contains { defaults.object(forKey: $0) as? Int == option }
+        smartModifiers = NSEvent.ModifierFlags(rawValue: UInt(defaults.object(forKey: Keys.smart) as? Int ?? (optionTaken ? 0 : option)))
         wheelTheme = WheelTheme(rawValue: defaults.string(forKey: Keys.theme) ?? "") ?? .glass
         soundsAndHaptics = defaults.object(forKey: Keys.sounds) as? Bool ?? true
         floatBehavior = FloatBehavior(rawValue: defaults.string(forKey: Keys.float) ?? "") ?? .createNew
@@ -85,6 +89,7 @@ final class AppSettings: ObservableObject {
         static let convert = "conversionWheelModifiers"
         static let tools = "toolsWheelModifiers"
         static let actions = "actionsWheelModifiers"
+        static let smart = "smartWheelModifiers"
         static let theme = "wheelTheme"
         static let sounds = "soundsAndHapticsEnabled"
         static let float = "floatWheelBehavior"
@@ -103,6 +108,7 @@ final class AppSettings: ObservableObject {
     @Published var conversionModifiers: NSEvent.ModifierFlags { didSet { defaults.set(Int(conversionModifiers.rawValue), forKey: Keys.convert) } }
     @Published var toolsModifiers: NSEvent.ModifierFlags { didSet { defaults.set(Int(toolsModifiers.rawValue), forKey: Keys.tools) } }
     @Published var actionsModifiers: NSEvent.ModifierFlags { didSet { defaults.set(Int(actionsModifiers.rawValue), forKey: Keys.actions) } }
+    @Published var smartModifiers: NSEvent.ModifierFlags { didSet { defaults.set(Int(smartModifiers.rawValue), forKey: Keys.smart) } }
     @Published var wheelTheme: WheelTheme { didSet { defaults.set(wheelTheme.rawValue, forKey: Keys.theme) } }
     @Published var soundsAndHaptics: Bool { didSet { defaults.set(soundsAndHaptics, forKey: Keys.sounds) } }
     @Published var floatBehavior: FloatBehavior { didSet { defaults.set(floatBehavior.rawValue, forKey: Keys.float) } }
@@ -130,6 +136,7 @@ final class AppSettings: ObservableObject {
         case .convert: conversionModifiers
         case .tools: toolsModifiers
         case .actions: actionsModifiers
+        case .smart: smartModifiers
         }
     }
 
@@ -139,6 +146,7 @@ final class AppSettings: ObservableObject {
         case .convert: conversionModifiers = clean
         case .tools: toolsModifiers = clean
         case .actions: actionsModifiers = clean
+        case .smart: smartModifiers = clean
         }
     }
 

@@ -89,6 +89,30 @@
 				<string>public.item</string>
 			</array>
 		</dict>
+		<dict>
+			<key>NSMenuItem</key>
+			<dict>
+				<key>default</key>
+				<string>WheelConvert Smart Actions</string>
+			</dict>
+			<key>NSMessage</key>
+			<string>showWheel</string>
+			<key>NSPortName</key>
+			<string>WheelConvert</string>
+			<key>NSUserData</key>
+			<string>smart</string>
+			<key>NSRequiredContext</key>
+			<dict/>
+			<key>NSSendFileTypes</key>
+			<array>
+				<string>public.item</string>
+			</array>
+			<key>NSSendTypes</key>
+			<array>
+				<string>public.utf8-plain-text</string>
+				<string>public.url</string>
+			</array>
+		</dict>
 	</array>
 	<key>SUFeedURL</key>
 	<string>$(SPARKLE_FEED_URL)</string>

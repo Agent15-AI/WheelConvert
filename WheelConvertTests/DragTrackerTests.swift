@@ -15,15 +15,16 @@ final class DragTrackerTests: XCTestCase {
         case [.command]: .tools
         case [.control]: .actions
         case [.option, .shift]: .tools
+        case [.option]: .smart
         default: nil
         }
     }
 
     @discardableResult
-    private func step(button: Bool, mods: NSEvent.ModifierFlags = [], escape: Bool = false, count: Int, files: [URL]? = nil) -> DragTracker.Effect? {
+    private func step(button: Bool, mods: NSEvent.ModifierFlags = [], escape: Bool = false, count: Int, content: DragContent?? = nil) -> DragTracker.Effect? {
         now += 1.0 / 60
         let effect = tracker.update(.init(buttonDown: button, modifiers: mods, escapeDown: escape, changeCount: count), now: now,
-                                    wheelVisible: visible, dragInsideWheel: inside, files: { files ?? file }, mode: mode)
+                                    wheelVisible: visible, dragInsideWheel: inside, content: { content ?? .files(file) }, mode: mode)
         if case .show = effect { visible = true }
         if effect == .dismiss { visible = false }
         return effect
@@ -34,7 +35,7 @@ final class DragTrackerTests: XCTestCase {
         step(button: true, count: 10)           // mouse down, no drag yet
         XCTAssertNil(step(button: true, count: 11 - 1))
         step(button: true, count: 11)           // drag starts
-        XCTAssertEqual(step(button: true, mods: [.shift], count: 11), .show(.convert, file))
+        XCTAssertEqual(step(button: true, mods: [.shift], count: 11), .show(.convert, .files(file)))
         XCTAssertNil(step(button: true, count: 11)) // key released: stays open
         for _ in 0..<60 { XCTAssertNil(step(button: true, count: 11)) }
         inside = true
@@ -50,22 +51,22 @@ final class DragTrackerTests: XCTestCase {
         step(button: true, count: 10)
         XCTAssertNil(step(button: true, mods: [.shift], count: 10))
         XCTAssertNil(step(button: true, count: 10))
-        XCTAssertEqual(step(button: true, count: 11), .show(.convert, file))
+        XCTAssertEqual(step(button: true, count: 11), .show(.convert, .files(file)))
     }
 
     func testHeldModifierAtMouseDownOpensWhenDragStarts() {
         step(button: false, mods: [.shift], count: 3)
         step(button: true, mods: [.shift], count: 3)
-        XCTAssertEqual(step(button: true, mods: [.shift], count: 4), .show(.convert, file))
+        XCTAssertEqual(step(button: true, mods: [.shift], count: 4), .show(.convert, .files(file)))
     }
 
     func testSwitchingCombinationSwitchesWheel() {
         step(button: false, count: 1)
         step(button: true, count: 1)
         step(button: true, count: 2)
-        XCTAssertEqual(step(button: true, mods: [.shift], count: 2), .show(.convert, file))
-        XCTAssertEqual(step(button: true, mods: [.shift, .option], count: 2), .show(.tools, file))
-        XCTAssertEqual(step(button: true, mods: [.control], count: 2), .show(.actions, file))
+        XCTAssertEqual(step(button: true, mods: [.shift], count: 2), .show(.convert, .files(file)))
+        XCTAssertEqual(step(button: true, mods: [.shift, .option], count: 2), .show(.tools, .files(file)))
+        XCTAssertEqual(step(button: true, mods: [.control], count: 2), .show(.actions, .files(file)))
     }
 
     func testEscapeDismissesAndClearsLatch() {
@@ -78,11 +79,29 @@ final class DragTrackerTests: XCTestCase {
         XCTAssertNil(step(button: true, count: 6))
     }
 
-    func testDraggingTextNeverOpens() {
+    func testDraggingTextOpensOnlyTheSmartWheel() {
+        let text = DragContent.text("Hello", rich: nil)
         step(button: false, count: 7)
         step(button: true, count: 7)
-        XCTAssertNil(step(button: true, count: 8, files: []))
-        XCTAssertNil(step(button: true, mods: [.shift], count: 8, files: []))
+        XCTAssertNil(step(button: true, count: 8, content: text))
+        XCTAssertNil(step(button: true, mods: [.shift], count: 8, content: text))
+        XCTAssertNil(step(button: true, mods: [.command], count: 8, content: text))
+        XCTAssertEqual(step(button: true, mods: [.option], count: 8, content: text), .show(.smart, text))
+    }
+
+    func testNothingReadableNeverOpens() {
+        step(button: false, count: 7)
+        step(button: true, count: 7)
+        XCTAssertNil(step(button: true, mods: [.option], count: 8, content: .some(nil)))
+    }
+
+    func testSmartWheelCancelledMidDragWithEscape() {
+        let link = DragContent.link(URL(string: "https://example.com")!)
+        step(button: false, count: 30)
+        step(button: true, count: 30)
+        XCTAssertEqual(step(button: true, mods: [.option], count: 31, content: link), .show(.smart, link))
+        XCTAssertEqual(step(button: true, escape: true, count: 31, content: link), .dismiss)
+        XCTAssertNil(step(button: false, count: 31, content: link))
     }
 
     func testStaleDragPasteboardIsIgnored() {

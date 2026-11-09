@@ -60,6 +60,21 @@ enum CommandLineMode {
                     try await intentCheck(args[i + 1], args[i + 2], files: Array(args[(i + 3)...]))
                     exit(0)
                 }
+                if args.contains(where: { $0.hasPrefix("--smart") || $0 == "wheel-smart" }) { await OnDevice.refreshTranslationLanguages() }
+                if let i = args.firstIndex(of: "--smart-items"), i + 1 < args.count {
+                    let content = try DragContent.arguments(Array(args[(i + 1)...]))
+                    print(WheelItem.items(for: .smart, content: content).items.map(\.id).joined(separator: " "))
+                    exit(0)
+                }
+                if let i = args.firstIndex(of: "--smart"), i + 2 < args.count {
+                    // --smart <action[:argument]> <files… | text:<file> | html:<file> | link:<address>>
+                    let parts = args[i + 1].split(separator: ":", maxSplits: 1).map(String.init)
+                    guard let action = SmartAction(rawValue: parts[0]) else { throw WheelError("Unknown action \(parts[0])") }
+                    let content = try DragContent.arguments(Array(args[(i + 2)...]))
+                    guard SmartAction.petals(for: content).contains(.smart(action)) else { throw WheelError("This action isn’t offered for that content.") }
+                    await SmartRunner.perform(action, content: content, argument: parts.count > 1 ? parts[1] : nil)?.value
+                    exit(0)
+                }
                 if let i = args.firstIndex(of: "--outputs"), i + 1 < args.count {
                     let url = URL(fileURLWithPath: args[i + 1])
                     let formats = FileFormat.detect(url).map { ConversionMatrix.outputs(for: $0) } ?? []

@@ -118,6 +118,8 @@ enum FileActions {
     }
 
     static func alert(_ message: String, title: String = "WheelConvert") {
+        // The developer modes have no UI to show it in.
+        if NSApp.activationPolicy() == .prohibited { return FileHandle.standardError.write(Data("ERROR:\(message)\n".utf8)) }
         NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
         alert.messageText = title
@@ -132,7 +134,7 @@ enum FileActions {
 enum Feedback {
     private static var panel: NSPanel?
 
-    static func confirm(_ text: String) {
+    static func confirm(_ text: String, seconds: Double = 1.1) {
         panel?.orderOut(nil)
         let label = NSTextField(labelWithString: text)
         label.font = .systemFont(ofSize: 12, weight: .semibold)
@@ -161,7 +163,7 @@ enum Feedback {
         bubble.orderFrontRegardless()
         panel = bubble
         NSAccessibility.post(element: bubble, notification: .announcementRequested, userInfo: [.announcement: text])
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.1) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds) {
             NSAnimationContext.runAnimationGroup({ $0.duration = 0.25; bubble.animator().alphaValue = 0 }) { bubble.orderOut(nil) }
         }
     }
